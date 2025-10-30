@@ -1,16 +1,26 @@
 plugins {
-    id 'groovy'
+    id 'java'
+    id 'application'
 }
 
-group = 'org.example'
-version = '1.0-SNAPSHOT'
+group = 'de.zeltlager.kuechenplaner'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+application {
+    mainClass = 'de.zeltlager.kuechenplaner.App'
+}
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation 'org.apache.groovy:groovy:5.0.0'
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
