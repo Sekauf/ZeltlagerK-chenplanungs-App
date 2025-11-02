@@ -32,47 +32,78 @@ public class ConsoleUserInterface implements UserInterface {
 
     @Override
     public void start() {
+        ConsoleSnapshot snapshotBeforeSampleData = loadSnapshot();
+
+        printHeader();
+        printMenuPlanOverview(snapshotBeforeSampleData.menuPlanEntries());
+        printInventoryOverview(snapshotBeforeSampleData.inventoryItems());
+
+        addSampleData();
+
+        ConsoleSnapshot snapshotAfterSampleData = loadSnapshot();
+        printSummary(snapshotAfterSampleData);
+    }
+
+    private void printHeader() {
         System.out.println("Zeltlager Küchenplaner – Architekturprototyp");
+    }
+
+    private void printMenuPlanOverview(List<MenuPlanEntry> entries) {
         System.out.println("Aktueller Menüplan:");
-        if (menuPlanService.getMenuPlan().isEmpty()) {
-            System.out.println("  (noch keine Einträge)");
+        if (entries.isEmpty()) {
+            printEmptyPlaceholder();
+            return;
         }
 
+        entries.stream()
+                .map(this::formatMenuPlanEntry)
+                .forEach(System.out::println);
+    }
+
+    private void printInventoryOverview(List<InventoryItem> items) {
         System.out.println("\nAktueller Lagerbestand:");
-        if (inventoryService.getInventory().isEmpty()) {
-            System.out.println("  (noch keine Einträge)");
+        if (items.isEmpty()) {
+            printEmptyPlaceholder();
+            return;
         }
 
-        System.out.println("\nAktuelle Rezepte:");
-        List<RecipeWithIngredients> recipes = recipeService.getAllRecipes();
-        if (recipes.isEmpty()) {
-            System.out.println("  (noch keine Einträge)");
-        }
+        items.stream()
+                .map(this::formatInventoryItem)
+                .forEach(System.out::println);
+    }
 
+    private void printEmptyPlaceholder() {
+        System.out.println("  (noch keine Einträge)");
+    }
+
+    private void addSampleData() {
         // Beispielhafte Dummy-Daten, um den Ablauf zu demonstrieren.
         menuPlanService.addMenuPlanEntry(new MenuPlanEntry(LocalDate.now(), new Meal("Spaghetti Bolognese", 50)));
         inventoryService.upsertInventoryItem(new InventoryItem("Tomatensauce", 20, "l"));
+    }
 
-        RecipeWithIngredients exampleRecipe = recipes.isEmpty()
-                ? recipeService.createRecipe(
-                        "Vegane Gemüsesuppe",
-                        null,
-                        10,
-                        "Gemüse schneiden, anbraten und mit Brühe köcheln lassen.",
-                        List.of(
-                                new Ingredient(null, null, "Karotten", "kg", 0.1, null),
-                                new Ingredient(null, null, "Kartoffeln", "kg", 0.12, null),
-                                new Ingredient(null, null, "Gemüsebrühe", "l", 0.25, "Hausgemacht oder Instant")))
-                : recipes.get(0);
-        if (recipes.isEmpty()) {
-            recipes = recipeService.getAllRecipes();
-        }
-
+    private void printSummary(ConsoleSnapshot snapshot) {
         System.out.println("\nBeispieldaten wurden hinzugefügt.");
-        System.out.println("Menüplan-Einträge: " + menuPlanService.getMenuPlan().size());
-        System.out.println("Lagerartikel: " + inventoryService.getInventory().size());
-        System.out.println("Rezepte: " + recipes.size());
-        System.out.println("Beispielrezept: " + exampleRecipe.getRecipe().getName() +
-                " (" + exampleRecipe.getIngredients().size() + " Zutaten)");
+        System.out.println("Menüplan-Einträge: " + snapshot.menuPlanEntries().size());
+        System.out.println("Lagerartikel: " + snapshot.inventoryItems().size());
+    }
+
+    private ConsoleSnapshot loadSnapshot() {
+        return new ConsoleSnapshot(
+                List.copyOf(menuPlanService.getMenuPlan()),
+                List.copyOf(inventoryService.getInventory())
+        );
+    }
+
+    private String formatMenuPlanEntry(MenuPlanEntry entry) {
+        Meal meal = entry.getMeal();
+        return "  " + entry.getDate() + ": " + meal.getName() + " für " + meal.getServings() + " Personen";
+    }
+
+    private String formatInventoryItem(InventoryItem item) {
+        return "  " + item.getIngredient() + ": " + item.getQuantity() + " " + item.getUnit();
+    }
+
+    private record ConsoleSnapshot(List<MenuPlanEntry> menuPlanEntries, List<InventoryItem> inventoryItems) {
     }
 }

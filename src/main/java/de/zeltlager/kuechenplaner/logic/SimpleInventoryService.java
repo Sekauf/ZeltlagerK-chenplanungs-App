@@ -25,11 +25,11 @@ public class SimpleInventoryService implements InventoryService {
 
     @Override
     public Optional<InventoryItem> getInventoryItem(String ingredient) {
-        return inventoryRepository.findByIngredient(ingredient);
+        return inventoryRepository.findByIngredient(Objects.requireNonNull(ingredient, "ingredient"));
     }
 
     @Override
     public void upsertInventoryItem(InventoryItem item) {
-        inventoryRepository.save(item);
+        inventoryRepository.save(Objects.requireNonNull(item, "item"));
     }
 }

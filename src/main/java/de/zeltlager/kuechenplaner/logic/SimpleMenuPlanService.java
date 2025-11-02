@@ -25,11 +25,11 @@ public class SimpleMenuPlanService implements MenuPlanService {
 
     @Override
     public List<MenuPlanEntry> getMenuPlan(LocalDate date) {
-        return menuPlanRepository.findByDate(date);
+        return menuPlanRepository.findByDate(Objects.requireNonNull(date, "date"));
     }
 
     @Override
     public void addMenuPlanEntry(MenuPlanEntry entry) {
-        menuPlanRepository.save(entry);
+        menuPlanRepository.save(Objects.requireNonNull(entry, "entry"));
     }
 }

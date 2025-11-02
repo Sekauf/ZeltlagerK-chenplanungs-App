@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * SQLite implementation of {@link MenuPlanRepository}.
@@ -23,7 +24,7 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
     private final Connection connection;
 
     public SqliteMenuPlanRepository(Connection connection) {
-        this.connection = connection;
+        this.connection = Objects.requireNonNull(connection, "connection");
     }
 
     @Override
