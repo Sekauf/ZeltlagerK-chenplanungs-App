@@ -39,6 +39,7 @@ public class RecipePanel extends JPanel {
     private final RecipeTableModel tableModel;
     private final JTable recipeTable;
     private final JButton reloadButton;
+    private final JButton newButton;
     private final JLabel statusLabel;
 
     private final JTextField nameField;
@@ -49,6 +50,7 @@ public class RecipePanel extends JPanel {
     private final JButton editButton;
 
     private RecipeWithIngredients selectedRecipe;
+    private javax.swing.SwingWorker<RecipeWithIngredients, Void> loadRecipeWorker;
 
     public RecipePanel(RecipeService recipeService) {
         super(new BorderLayout());
@@ -71,6 +73,10 @@ public class RecipePanel extends JPanel {
         reloadButton = new JButton("Aktualisieren");
         reloadButton.addActionListener(event -> reloadData());
         topPanel.add(reloadButton);
+
+        newButton = new JButton("Neues Rezept…");
+        newButton.addActionListener(event -> openCreateDialog());
+        topPanel.add(newButton);
 
         statusLabel = new JLabel(" ");
         topPanel.add(statusLabel);
@@ -177,8 +183,10 @@ public class RecipePanel extends JPanel {
 
     public void reloadData() {
         reloadButton.setEnabled(false);
+        newButton.setEnabled(false);
         statusLabel.setText("Aktualisiere...");
         updateDetailEnabled(false);
+        cancelRecipeLoadWorker();
         Long selectedId = selectedRecipe != null ? selectedRecipe.getRecipe().getId().orElse(null) : null;
         new SwingWorker<List<RecipeWithIngredients>, Void>() {
             @Override
@@ -200,6 +208,7 @@ public class RecipePanel extends JPanel {
                     clearSelection();
                 } finally {
                     reloadButton.setEnabled(true);
+                    newButton.setEnabled(true);
                 }
             }
         }.execute();
@@ -231,9 +240,37 @@ public class RecipePanel extends JPanel {
         }
         int modelIndex = recipeTable.convertRowIndexToModel(viewIndex);
         RecipeWithIngredients recipe = tableModel.getRecipeAt(modelIndex);
-        selectedRecipe = recipe;
-        populateDetailFields(recipe);
-        updateDetailEnabled(true);
+        long recipeId = recipe.getRecipe().getId().orElseThrow();
+
+        updateDetailEnabled(false);
+        cancelRecipeLoadWorker();
+        loadRecipeWorker = new SwingWorker<>() {
+            @Override
+            protected RecipeWithIngredients doInBackground() {
+                return recipeService.getRecipe(recipeId)
+                        .orElseThrow(() -> new IllegalStateException("Rezept nicht gefunden"));
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    if (isCancelled()) {
+                        return;
+                    }
+                    RecipeWithIngredients loaded = get();
+                    selectedRecipe = loaded;
+                    populateDetailFields(loaded);
+                    updateDetailEnabled(true);
+                } catch (Exception e) {
+                    showError("Rezept konnte nicht geladen werden: " + e.getMessage());
+                    statusLabel.setText("Fehler beim Laden");
+                    clearSelection();
+                } finally {
+                    loadRecipeWorker = null;
+                }
+            }
+        };
+        loadRecipeWorker.execute();
     }
 
     private void populateDetailFields(RecipeWithIngredients recipe) {
@@ -264,6 +301,7 @@ public class RecipePanel extends JPanel {
         instructionsArea.setText("");
         ingredientListModel.clear();
         updateDetailEnabled(false);
+        cancelRecipeLoadWorker();
     }
 
     private void updateDetailEnabled(boolean enabled) {
@@ -299,25 +337,23 @@ public class RecipePanel extends JPanel {
         dialog.showDialog(initialData).ifPresent(this::submitRecipeUpdate);
     }
 
+    private void openCreateDialog() {
+        RecipeDetailDialog dialog = new RecipeDetailDialog(javax.swing.SwingUtilities.getWindowAncestor(this));
+        dialog.setTitle("Neues Rezept anlegen");
+        dialog.showDialog(null).ifPresent(this::submitRecipeCreation);
+    }
+
     private void submitRecipeUpdate(RecipeDetailDialog.FormData formData) {
         if (selectedRecipe == null) {
             return;
         }
         Recipe baseRecipe = selectedRecipe.getRecipe();
         long id = baseRecipe.getId().orElseThrow();
-        List<Ingredient> ingredients = new ArrayList<>();
-        for (RecipeDetailDialog.IngredientFormEntry entry : formData.ingredients()) {
-            ingredients.add(new Ingredient(
-                    entry.id(),
-                    entry.recipeId(),
-                    entry.name(),
-                    entry.unit(),
-                    entry.amountPerServing(),
-                    entry.notes()));
-        }
+        List<Ingredient> ingredients = buildIngredientsForUpdate(formData, id);
 
         updateDetailEnabled(false);
         reloadButton.setEnabled(false);
+        newButton.setEnabled(false);
         statusLabel.setText("Speichere...");
         new SwingWorker<RecipeWithIngredients, Void>() {
             @Override
@@ -344,9 +380,87 @@ public class RecipePanel extends JPanel {
                     statusLabel.setText("Fehler beim Speichern");
                     updateDetailEnabled(true);
                     reloadButton.setEnabled(true);
+                    newButton.setEnabled(true);
                 }
             }
         }.execute();
+    }
+
+    private void submitRecipeCreation(RecipeDetailDialog.FormData formData) {
+        List<Ingredient> ingredients = buildIngredientsForCreate(formData);
+
+        updateDetailEnabled(false);
+        reloadButton.setEnabled(false);
+        newButton.setEnabled(false);
+        statusLabel.setText("Speichere...");
+        new SwingWorker<RecipeWithIngredients, Void>() {
+            @Override
+            protected RecipeWithIngredients doInBackground() {
+                return recipeService.createRecipe(
+                        formData.name(),
+                        formData.categoryId(),
+                        formData.baseServings(),
+                        formData.instructions(),
+                        ingredients);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    RecipeWithIngredients created = get();
+                    selectedRecipe = created;
+                    statusLabel.setText("Rezept gespeichert");
+                    reloadData();
+                } catch (Exception e) {
+                    showError("Rezept konnte nicht gespeichert werden: " + e.getMessage());
+                    statusLabel.setText("Fehler beim Speichern");
+                    reloadButton.setEnabled(true);
+                    newButton.setEnabled(true);
+                    if (selectedRecipe != null) {
+                        populateDetailFields(selectedRecipe);
+                        updateDetailEnabled(true);
+                    } else {
+                        clearSelection();
+                    }
+                }
+            }
+        }.execute();
+    }
+
+    private List<Ingredient> buildIngredientsForCreate(RecipeDetailDialog.FormData formData) {
+        List<Ingredient> ingredients = new ArrayList<>();
+        for (RecipeDetailDialog.IngredientFormEntry entry : formData.ingredients()) {
+            ingredients.add(new Ingredient(
+                    entry.id(),
+                    null,
+                    entry.name(),
+                    entry.unit(),
+                    entry.amountPerServing(),
+                    entry.notes()));
+        }
+        return ingredients;
+    }
+
+    private List<Ingredient> buildIngredientsForUpdate(RecipeDetailDialog.FormData formData, long recipeId) {
+        List<Ingredient> ingredients = new ArrayList<>();
+        for (RecipeDetailDialog.IngredientFormEntry entry : formData.ingredients()) {
+            Long resolvedRecipeId = entry.recipeId() != null ? entry.recipeId() : recipeId;
+            ingredients.add(new Ingredient(
+                    entry.id(),
+                    resolvedRecipeId,
+                    entry.name(),
+                    entry.unit(),
+                    entry.amountPerServing(),
+                    entry.notes()));
+        }
+        return ingredients;
+    }
+
+    private void cancelRecipeLoadWorker() {
+        if (loadRecipeWorker != null) {
+            loadRecipeWorker.cancel(true);
+            loadRecipeWorker = null;
+        }
     }
 
     private void showError(String message) {
