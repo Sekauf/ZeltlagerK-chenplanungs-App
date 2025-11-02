@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -19,7 +20,7 @@ public class SqliteInventoryRepository implements InventoryRepository {
     private final Connection connection;
 
     public SqliteInventoryRepository(Connection connection) {
-        this.connection = connection;
+        this.connection = Objects.requireNonNull(connection, "connection");
     }
 
     @Override
