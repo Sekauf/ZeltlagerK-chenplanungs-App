@@ -15,6 +15,7 @@ import javax.swing.WindowConstants;
 
 import de.zeltlager.kuechenplaner.logic.InventoryService;
 import de.zeltlager.kuechenplaner.logic.MenuPlanService;
+import de.zeltlager.kuechenplaner.logic.RecipeService;
 
 /**
  * Encapsulates the main application window and its initial layout.
@@ -24,9 +25,11 @@ public class MainWindow {
     private final JFrame frame;
     private final MenuPlanPanel menuPlanPanel;
     private final InventoryPanel inventoryPanel;
+    private final RecipePanel recipePanel;
 
     public MainWindow(MenuPlanService menuPlanService,
             InventoryService inventoryService,
+            RecipeService recipeService,
             AutoCloseable shutdownHook) {
         frame = new JFrame("Zeltlager Küchenplaner");
         frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -37,6 +40,7 @@ public class MainWindow {
 
         menuPlanPanel = new MenuPlanPanel(menuPlanService);
         inventoryPanel = new InventoryPanel(inventoryService);
+        recipePanel = new RecipePanel(recipeService);
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -61,6 +65,7 @@ public class MainWindow {
 
         menuPlanPanel.reloadData();
         inventoryPanel.reloadData();
+        recipePanel.reloadData();
     }
 
     private JMenuBar createMenuBar() {
@@ -92,6 +97,7 @@ public class MainWindow {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Menüplan", menuPlanPanel);
         tabbedPane.addTab("Lagerbestand", inventoryPanel);
+        tabbedPane.addTab("Rezepte", recipePanel);
         return tabbedPane;
     }
 
