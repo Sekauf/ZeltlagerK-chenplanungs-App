@@ -1,10 +1,13 @@
 package de.zeltlager.kuechenplaner.gui;
 
+import de.zeltlager.kuechenplaner.data.model.Ingredient;
 import de.zeltlager.kuechenplaner.data.model.InventoryItem;
 import de.zeltlager.kuechenplaner.data.model.Meal;
 import de.zeltlager.kuechenplaner.data.model.MenuPlanEntry;
+import de.zeltlager.kuechenplaner.data.model.RecipeWithIngredients;
 import de.zeltlager.kuechenplaner.logic.InventoryService;
 import de.zeltlager.kuechenplaner.logic.MenuPlanService;
+import de.zeltlager.kuechenplaner.logic.RecipeService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -17,10 +20,14 @@ public class ConsoleUserInterface implements UserInterface {
 
     private final MenuPlanService menuPlanService;
     private final InventoryService inventoryService;
+    private final RecipeService recipeService;
 
-    public ConsoleUserInterface(MenuPlanService menuPlanService, InventoryService inventoryService) {
+    public ConsoleUserInterface(MenuPlanService menuPlanService,
+                                InventoryService inventoryService,
+                                RecipeService recipeService) {
         this.menuPlanService = Objects.requireNonNull(menuPlanService, "menuPlanService");
         this.inventoryService = Objects.requireNonNull(inventoryService, "inventoryService");
+        this.recipeService = Objects.requireNonNull(recipeService, "recipeService");
     }
 
     @Override
