@@ -10,6 +10,7 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -279,11 +280,22 @@ public class RecipePanel extends JPanel {
         }
         Recipe baseRecipe = selectedRecipe.getRecipe();
         RecipeDetailDialog dialog = new RecipeDetailDialog(javax.swing.SwingUtilities.getWindowAncestor(this));
+        List<RecipeDetailDialog.IngredientFormEntry> ingredientEntries = new ArrayList<>();
+        for (Ingredient ingredient : selectedRecipe.getIngredients()) {
+            ingredientEntries.add(new RecipeDetailDialog.IngredientFormEntry(
+                    ingredient.getId().orElse(null),
+                    ingredient.getRecipeId().orElse(null),
+                    ingredient.getName(),
+                    ingredient.getUnit(),
+                    ingredient.getAmountPerServing(),
+                    ingredient.getNotes().orElse(null)));
+        }
         RecipeDetailDialog.FormData initialData = new RecipeDetailDialog.FormData(
                 baseRecipe.getName(),
                 baseRecipe.getCategoryId().orElse(null),
                 baseRecipe.getBaseServings(),
-                baseRecipe.getInstructions());
+                baseRecipe.getInstructions(),
+                ingredientEntries);
         dialog.showDialog(initialData).ifPresent(this::submitRecipeUpdate);
     }
 
@@ -293,7 +305,16 @@ public class RecipePanel extends JPanel {
         }
         Recipe baseRecipe = selectedRecipe.getRecipe();
         long id = baseRecipe.getId().orElseThrow();
-        List<Ingredient> ingredients = selectedRecipe.getIngredients();
+        List<Ingredient> ingredients = new ArrayList<>();
+        for (RecipeDetailDialog.IngredientFormEntry entry : formData.ingredients()) {
+            ingredients.add(new Ingredient(
+                    entry.id(),
+                    entry.recipeId(),
+                    entry.name(),
+                    entry.unit(),
+                    entry.amountPerServing(),
+                    entry.notes()));
+        }
 
         updateDetailEnabled(false);
         reloadButton.setEnabled(false);
