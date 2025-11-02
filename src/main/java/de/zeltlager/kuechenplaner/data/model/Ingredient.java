@@ -21,7 +21,7 @@ public final class Ingredient {
                       double amountPerServing,
                       String notes) {
         this.id = id;
-        this.recipeId = Objects.requireNonNull(recipeId, "recipeId");
+        this.recipeId = recipeId;
         this.name = Objects.requireNonNull(name, "name");
         this.unit = Objects.requireNonNull(unit, "unit");
         this.amountPerServing = amountPerServing;
@@ -32,8 +32,8 @@ public final class Ingredient {
         return Optional.ofNullable(id);
     }
 
-    public Long getRecipeId() {
-        return recipeId;
+    public Optional<Long> getRecipeId() {
+        return Optional.ofNullable(recipeId);
     }
 
     public String getName() {

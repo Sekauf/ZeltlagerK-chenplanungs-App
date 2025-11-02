@@ -46,6 +46,28 @@ public final class SqliteDatabase implements AutoCloseable {
                     "meal_name TEXT NOT NULL, " +
                     "servings INTEGER NOT NULL" +
                     ")");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS recipes (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "name TEXT NOT NULL, " +
+                    "category_id INTEGER, " +
+                    "base_servings INTEGER NOT NULL, " +
+                    "instructions TEXT NOT NULL, " +
+                    "created_at TEXT, " +
+                    "updated_at TEXT" +
+                    ")");
+
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS recipe_ingredients (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    "recipe_id INTEGER NOT NULL, " +
+                    "name TEXT NOT NULL, " +
+                    "unit TEXT NOT NULL, " +
+                    "amount_per_serving REAL NOT NULL, " +
+                    "notes TEXT, " +
+                    "FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE" +
+                    ")");
+
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe_id ON recipe_ingredients(recipe_id)");
         }
     }
 
