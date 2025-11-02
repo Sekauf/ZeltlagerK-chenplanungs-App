@@ -2,15 +2,19 @@ package de.zeltlager.kuechenplaner;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.WindowConstants;
+
+import de.zeltlager.kuechenplaner.logic.InventoryService;
+import de.zeltlager.kuechenplaner.logic.MenuPlanService;
 
 /**
  * Encapsulates the main application window and its initial layout.
@@ -18,14 +22,35 @@ import javax.swing.WindowConstants;
 public class MainWindow {
 
     private final JFrame frame;
+    private final MenuPlanPanel menuPlanPanel;
+    private final InventoryPanel inventoryPanel;
 
-    public MainWindow() {
+    public MainWindow(MenuPlanService menuPlanService,
+            InventoryService inventoryService,
+            AutoCloseable shutdownHook) {
         frame = new JFrame("Zeltlager Küchenplaner");
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setPreferredSize(new Dimension(1024, 768));
 
         frame.setJMenuBar(createMenuBar());
+
+        menuPlanPanel = new MenuPlanPanel(menuPlanService);
+        inventoryPanel = new InventoryPanel(inventoryService);
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                if (shutdownHook != null) {
+                    try {
+                        shutdownHook.close();
+                    } catch (Exception ex) {
+                        showErrorDialog("Datenbank konnte nicht geschlossen werden: " + ex.getMessage());
+                    }
+                }
+            }
+        });
+
         frame.add(createTabbedPane(), BorderLayout.CENTER);
     }
 
@@ -33,6 +58,9 @@ public class MainWindow {
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+
+        menuPlanPanel.reloadData();
+        inventoryPanel.reloadData();
     }
 
     private JMenuBar createMenuBar() {
@@ -55,27 +83,19 @@ public class MainWindow {
 
     private void showAboutDialog() {
         JOptionPane.showMessageDialog(frame,
-                "Zeltlager Küchenplaner\nVersion 0.1.0\nEntwickelt für eine einfache Küchenorganisation.",
+                "Zeltlager Küchenplaner\nVersion 0.1.0\nAnbindung an aktuelle SQLite-Datenbank.",
                 "Über",
                 JOptionPane.INFORMATION_MESSAGE);
     }
 
     private JTabbedPane createTabbedPane() {
         JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.addTab("Rezepte", createRecipesPanel());
-        tabbedPane.addTab("Einkaufsplanung", createShoppingPanel());
+        tabbedPane.addTab("Menüplan", menuPlanPanel);
+        tabbedPane.addTab("Lagerbestand", inventoryPanel);
         return tabbedPane;
     }
 
-    private JPanel createRecipesPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new PlaceholderPanel("Rezepte verwalten"), BorderLayout.CENTER);
-        return panel;
-    }
-
-    private JPanel createShoppingPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new PlaceholderPanel("Einkaufsplanung organisieren"), BorderLayout.CENTER);
-        return panel;
+    private void showErrorDialog(String message) {
+        JOptionPane.showMessageDialog(frame, message, "Fehler", JOptionPane.ERROR_MESSAGE);
     }
 }

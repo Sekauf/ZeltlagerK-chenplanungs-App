@@ -1,5 +1,17 @@
 package de.zeltlager.kuechenplaner;
 
+import de.zeltlager.kuechenplaner.data.repository.InventoryRepository;
+import de.zeltlager.kuechenplaner.data.repository.MenuPlanRepository;
+import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteDatabase;
+import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteInventoryRepository;
+import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteMenuPlanRepository;
+import de.zeltlager.kuechenplaner.logic.InventoryService;
+import de.zeltlager.kuechenplaner.logic.MenuPlanService;
+import de.zeltlager.kuechenplaner.logic.SimpleInventoryService;
+import de.zeltlager.kuechenplaner.logic.SimpleMenuPlanService;
+
+import java.nio.file.Path;
+
 import javax.swing.SwingUtilities;
 
 /**
@@ -12,9 +24,38 @@ public final class App {
     }
 
     public static void main(String[] args) {
+        Path databaseFile = Path.of("rezepte.db");
+
+        SqliteDatabase database;
+        try {
+            database = new SqliteDatabase(databaseFile);
+        } catch (IllegalStateException e) {
+            System.err.println("Konnte Datenbank nicht initialisieren: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+
+        MenuPlanRepository menuPlanRepository = new SqliteMenuPlanRepository(database.getConnection());
+        InventoryRepository inventoryRepository = new SqliteInventoryRepository(database.getConnection());
+
+        MenuPlanService menuPlanService = new SimpleMenuPlanService(menuPlanRepository);
+        InventoryService inventoryService = new SimpleInventoryService(inventoryRepository);
+
+        SqliteDatabase finalDatabase = database;
         SwingUtilities.invokeLater(() -> {
-            MainWindow window = new MainWindow();
-            window.showWindow();
+            try {
+                MainWindow window = new MainWindow(menuPlanService, inventoryService, finalDatabase);
+                window.showWindow();
+            } catch (Exception e) {
+                System.err.println("Konnte das Hauptfenster nicht starten: " + e.getMessage());
+                e.printStackTrace();
+                try {
+                    finalDatabase.close();
+                } catch (Exception closeException) {
+                    System.err.println("Datenbank konnte nicht geschlossen werden: " + closeException.getMessage());
+                    closeException.printStackTrace();
+                }
+            }
         });
     }
 }
