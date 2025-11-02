@@ -41,10 +41,11 @@ public class RecipePanel extends JPanel {
     private final JLabel statusLabel;
 
     private final JTextField nameField;
+    private final JTextField categoryField;
     private final JSpinner baseServingsSpinner;
     private final JTextArea instructionsArea;
     private final DefaultListModel<String> ingredientListModel;
-    private final JButton saveButton;
+    private final JButton editButton;
 
     private RecipeWithIngredients selectedRecipe;
 
@@ -81,13 +82,22 @@ public class RecipePanel extends JPanel {
         add(splitPane, BorderLayout.CENTER);
 
         nameField = new JTextField();
+        nameField.setEditable(false);
+
+        categoryField = new JTextField();
+        categoryField.setEditable(false);
+
         baseServingsSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 1000, 1));
+        JSpinner.DefaultEditor spinnerEditor = (JSpinner.DefaultEditor) baseServingsSpinner.getEditor();
+        spinnerEditor.getTextField().setEditable(false);
+        spinnerEditor.getTextField().setFocusable(false);
         instructionsArea = new JTextArea(8, 30);
         instructionsArea.setLineWrap(true);
         instructionsArea.setWrapStyleWord(true);
+        instructionsArea.setEditable(false);
         ingredientListModel = new DefaultListModel<>();
-        saveButton = new JButton("Speichern");
-        saveButton.addActionListener(event -> saveSelectedRecipe());
+        editButton = new JButton("Bearbeiten…");
+        editButton.addActionListener(event -> openDetailDialog());
 
         // finalize detail panel wiring
         initializeDetailPanel(detailPanel);
@@ -116,6 +126,15 @@ public class RecipePanel extends JPanel {
         constraints.gridx = 1;
         constraints.weightx = 1.0;
         formPanel.add(nameField, constraints);
+
+        constraints.gridx = 0;
+        constraints.gridy++;
+        constraints.weightx = 0.0;
+        formPanel.add(new JLabel("Kategorie (ID):"), constraints);
+
+        constraints.gridx = 1;
+        constraints.weightx = 1.0;
+        formPanel.add(categoryField, constraints);
 
         constraints.gridx = 0;
         constraints.gridy++;
@@ -152,7 +171,7 @@ public class RecipePanel extends JPanel {
         constraints.gridy++;
         constraints.fill = GridBagConstraints.NONE;
         constraints.anchor = GridBagConstraints.NORTHEAST;
-        formPanel.add(saveButton, constraints);
+        formPanel.add(editButton, constraints);
     }
 
     public void reloadData() {
@@ -219,6 +238,7 @@ public class RecipePanel extends JPanel {
     private void populateDetailFields(RecipeWithIngredients recipe) {
         Recipe baseRecipe = recipe.getRecipe();
         nameField.setText(baseRecipe.getName());
+        categoryField.setText(baseRecipe.getCategoryId().map(Object::toString).orElse(""));
         baseServingsSpinner.setValue(baseRecipe.getBaseServings());
         instructionsArea.setText(baseRecipe.getInstructions());
 
@@ -238,6 +258,7 @@ public class RecipePanel extends JPanel {
     private void clearSelection() {
         selectedRecipe = null;
         nameField.setText("");
+        categoryField.setText("");
         baseServingsSpinner.setValue(10);
         instructionsArea.setText("");
         ingredientListModel.clear();
@@ -246,26 +267,32 @@ public class RecipePanel extends JPanel {
 
     private void updateDetailEnabled(boolean enabled) {
         nameField.setEnabled(enabled);
+        categoryField.setEnabled(enabled);
         baseServingsSpinner.setEnabled(enabled);
         instructionsArea.setEnabled(enabled);
-        saveButton.setEnabled(enabled);
+        editButton.setEnabled(enabled);
     }
 
-    private void saveSelectedRecipe() {
+    private void openDetailDialog() {
         if (selectedRecipe == null) {
             return;
         }
-        String name = nameField.getText().trim();
-        if (name.isEmpty()) {
-            showError("Bitte einen Rezeptnamen angeben.");
+        Recipe baseRecipe = selectedRecipe.getRecipe();
+        RecipeDetailDialog dialog = new RecipeDetailDialog(javax.swing.SwingUtilities.getWindowAncestor(this));
+        RecipeDetailDialog.FormData initialData = new RecipeDetailDialog.FormData(
+                baseRecipe.getName(),
+                baseRecipe.getCategoryId().orElse(null),
+                baseRecipe.getBaseServings(),
+                baseRecipe.getInstructions());
+        dialog.showDialog(initialData).ifPresent(this::submitRecipeUpdate);
+    }
+
+    private void submitRecipeUpdate(RecipeDetailDialog.FormData formData) {
+        if (selectedRecipe == null) {
             return;
         }
-        int baseServings = (Integer) baseServingsSpinner.getValue();
-        String instructions = instructionsArea.getText().trim();
-
         Recipe baseRecipe = selectedRecipe.getRecipe();
         long id = baseRecipe.getId().orElseThrow();
-        Long categoryId = baseRecipe.getCategoryId().orElse(null);
         List<Ingredient> ingredients = selectedRecipe.getIngredients();
 
         updateDetailEnabled(false);
@@ -274,7 +301,13 @@ public class RecipePanel extends JPanel {
         new SwingWorker<RecipeWithIngredients, Void>() {
             @Override
             protected RecipeWithIngredients doInBackground() {
-                return recipeService.updateRecipe(id, name, categoryId, baseServings, instructions, ingredients);
+                return recipeService.updateRecipe(
+                        id,
+                        formData.name(),
+                        formData.categoryId(),
+                        formData.baseServings(),
+                        formData.instructions(),
+                        ingredients);
             }
 
             @Override
