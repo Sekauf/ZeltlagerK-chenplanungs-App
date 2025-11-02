@@ -2,13 +2,16 @@ package de.zeltlager.kuechenplaner;
 
 import de.zeltlager.kuechenplaner.data.repository.InventoryRepository;
 import de.zeltlager.kuechenplaner.data.repository.MenuPlanRepository;
+import de.zeltlager.kuechenplaner.data.repository.RecipeRepository;
 import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteDatabase;
 import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteInventoryRepository;
 import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteMenuPlanRepository;
 import de.zeltlager.kuechenplaner.logic.InventoryService;
 import de.zeltlager.kuechenplaner.logic.MenuPlanService;
+import de.zeltlager.kuechenplaner.logic.RecipeService;
 import de.zeltlager.kuechenplaner.logic.SimpleInventoryService;
 import de.zeltlager.kuechenplaner.logic.SimpleMenuPlanService;
+import de.zeltlager.kuechenplaner.logic.SimpleRecipeService;
 
 import java.nio.file.Path;
 
