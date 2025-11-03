@@ -2,6 +2,7 @@ package de.zeltlager.kuechenplaner.logic;
 
 import de.zeltlager.kuechenplaner.data.model.Ingredient;
 import de.zeltlager.kuechenplaner.data.model.RecipeWithIngredients;
+import de.zeltlager.kuechenplaner.data.model.ShoppingListItem;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,4 +30,17 @@ public interface RecipeService {
                                        List<Ingredient> ingredients);
 
     void deleteRecipe(long id);
+
+    List<ShoppingListItem> generateShoppingList(List<RecipeSelection> selections);
+
+    record RecipeSelection(long recipeId, int servings) {
+        public RecipeSelection {
+            if (recipeId <= 0) {
+                throw new IllegalArgumentException("recipeId must be greater than zero");
+            }
+            if (servings <= 0) {
+                throw new IllegalArgumentException("servings must be greater than zero");
+            }
+        }
+    }
 }
