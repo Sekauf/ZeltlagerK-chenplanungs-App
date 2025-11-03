@@ -32,6 +32,8 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 /**
  * Panel that presents the list of recipes and allows inspecting or editing their details.
@@ -44,6 +46,7 @@ public class RecipePanel extends JPanel {
     private final JButton reloadButton;
     private final JButton newButton;
     private final JLabel statusLabel;
+    private final JTextField searchField;
 
     private final JTextField nameField;
     private final JTextField categoryField;
@@ -84,6 +87,26 @@ public class RecipePanel extends JPanel {
         newButton = new JButton("Neues Rezept…");
         newButton.addActionListener(event -> openCreateDialog());
         topPanel.add(newButton);
+
+        topPanel.add(new JLabel("Suche:"));
+        searchField = new JTextField(20);
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent event) {
+                filterRecipes();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent event) {
+                filterRecipes();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent event) {
+                filterRecipes();
+            }
+        });
+        topPanel.add(searchField);
 
         statusLabel = new JLabel(" ");
         topPanel.add(statusLabel);
@@ -226,7 +249,8 @@ public class RecipePanel extends JPanel {
                 try {
                     List<RecipeWithIngredients> recipes = get();
                     tableModel.setRecipes(recipes);
-                    statusLabel.setText(recipes.isEmpty() ? "Keine Rezepte vorhanden" : recipes.size() + " Rezepte");
+                    applyCurrentFilter();
+                    updateStatusLabel();
                     restoreSelection(selectedId);
                     notifyRecipesUpdated();
                 } catch (Exception e) {
@@ -234,6 +258,7 @@ public class RecipePanel extends JPanel {
                     statusLabel.setText("Fehler beim Laden");
                     tableModel.setRecipes(List.of());
                     clearSelection();
+                    updateStatusLabel();
                 } finally {
                     reloadButton.setEnabled(true);
                     newButton.setEnabled(true);
@@ -328,6 +353,39 @@ public class RecipePanel extends JPanel {
         ingredientHeaderLabel.setText("Zutaten:");
         updateDetailEnabled(false);
         cancelRecipeLoadWorker();
+    }
+
+    private void filterRecipes() {
+        Long selectedId = selectedRecipe != null && selectedRecipe.getRecipe().getId().isPresent()
+                ? selectedRecipe.getRecipe().getId().get()
+                : null;
+        applyCurrentFilter();
+        if (tableModel.getRowCount() == 0) {
+            clearSelection();
+        } else if (selectedId != null) {
+            restoreSelection(selectedId);
+        } else {
+            restoreSelection(null);
+        }
+        updateStatusLabel();
+    }
+
+    private void applyCurrentFilter() {
+        tableModel.setFilter(searchField.getText());
+    }
+
+    private void updateStatusLabel() {
+        int total = tableModel.getTotalRecipeCount();
+        int visible = tableModel.getRowCount();
+        if (total == 0) {
+            statusLabel.setText("Keine Rezepte vorhanden");
+        } else if (visible == 0) {
+            statusLabel.setText("Keine Treffer");
+        } else if (visible == total) {
+            statusLabel.setText(total == 1 ? "1 Rezept" : total + " Rezepte");
+        } else {
+            statusLabel.setText(visible + " von " + total + " Rezepten");
+        }
     }
 
     private void updateDetailEnabled(boolean enabled) {
