@@ -10,8 +10,11 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import javax.swing.DefaultListModel;
@@ -45,12 +48,14 @@ public class RecipePanel extends JPanel {
     private final JTextField nameField;
     private final JTextField categoryField;
     private final JSpinner baseServingsSpinner;
+    private final JSpinner targetServingsSpinner;
     private final JTextArea instructionsArea;
     private final DefaultListModel<String> ingredientListModel;
     private final JButton editButton;
 
     private RecipeWithIngredients selectedRecipe;
     private javax.swing.SwingWorker<RecipeWithIngredients, Void> loadRecipeWorker;
+    private boolean suppressTargetServingsChange;
 
     public RecipePanel(RecipeService recipeService) {
         super(new BorderLayout());
@@ -98,6 +103,16 @@ public class RecipePanel extends JPanel {
         JSpinner.DefaultEditor spinnerEditor = (JSpinner.DefaultEditor) baseServingsSpinner.getEditor();
         spinnerEditor.getTextField().setEditable(false);
         spinnerEditor.getTextField().setFocusable(false);
+        targetServingsSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 1000, 1));
+        targetServingsSpinner.addChangeListener(event -> {
+            if (suppressTargetServingsChange) {
+                return;
+            }
+            if (selectedRecipe != null) {
+                int targetServings = ((Number) targetServingsSpinner.getValue()).intValue();
+                updateIngredientListForServings(selectedRecipe, targetServings);
+            }
+        });
         instructionsArea = new JTextArea(8, 30);
         instructionsArea.setLineWrap(true);
         instructionsArea.setWrapStyleWord(true);
@@ -150,6 +165,15 @@ public class RecipePanel extends JPanel {
 
         constraints.gridx = 1;
         formPanel.add(baseServingsSpinner, constraints);
+
+        constraints.gridx = 0;
+        constraints.gridy++;
+        constraints.weightx = 0.0;
+        formPanel.add(new JLabel("Portionen (Ziel):"), constraints);
+
+        constraints.gridx = 1;
+        constraints.weightx = 1.0;
+        formPanel.add(targetServingsSpinner, constraints);
 
         constraints.gridx = 0;
         constraints.gridy++;
@@ -280,17 +304,11 @@ public class RecipePanel extends JPanel {
         baseServingsSpinner.setValue(baseRecipe.getBaseServings());
         instructionsArea.setText(baseRecipe.getInstructions());
 
-        ingredientListModel.clear();
-        for (Ingredient ingredient : recipe.getIngredients()) {
-            StringBuilder builder = new StringBuilder();
-            builder.append(ingredient.getName());
-            builder.append(" - ");
-            builder.append(ingredient.getAmountPerServing());
-            builder.append(" ");
-            builder.append(ingredient.getUnit());
-            ingredient.getNotes().ifPresent(notes -> builder.append(" (").append(notes).append(")"));
-            ingredientListModel.addElement(builder.toString());
-        }
+        suppressTargetServingsChange = true;
+        targetServingsSpinner.setValue(baseRecipe.getBaseServings());
+        suppressTargetServingsChange = false;
+
+        updateIngredientListForServings(recipe, baseRecipe.getBaseServings());
     }
 
     private void clearSelection() {
@@ -298,6 +316,9 @@ public class RecipePanel extends JPanel {
         nameField.setText("");
         categoryField.setText("");
         baseServingsSpinner.setValue(10);
+        suppressTargetServingsChange = true;
+        targetServingsSpinner.setValue(10);
+        suppressTargetServingsChange = false;
         instructionsArea.setText("");
         ingredientListModel.clear();
         updateDetailEnabled(false);
@@ -308,6 +329,7 @@ public class RecipePanel extends JPanel {
         nameField.setEnabled(enabled);
         categoryField.setEnabled(enabled);
         baseServingsSpinner.setEnabled(enabled);
+        targetServingsSpinner.setEnabled(enabled);
         instructionsArea.setEnabled(enabled);
         editButton.setEnabled(enabled);
     }
@@ -465,5 +487,40 @@ public class RecipePanel extends JPanel {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Fehler", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void updateIngredientListForServings(RecipeWithIngredients recipe, int targetServings) {
+        ingredientListModel.clear();
+        if (recipe == null) {
+            return;
+        }
+
+        int baseServings = recipe.getRecipe().getBaseServings();
+        if (baseServings <= 0) {
+            baseServings = 1;
+        }
+        if (targetServings <= 0) {
+            targetServings = 1;
+        }
+
+        double scalingFactor = (double) targetServings / baseServings;
+        NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.GERMANY);
+        numberFormat.setMaximumFractionDigits(2);
+        numberFormat.setMinimumFractionDigits(0);
+        numberFormat.setRoundingMode(RoundingMode.HALF_UP);
+
+        for (Ingredient ingredient : recipe.getIngredients()) {
+            double baseAmount = ingredient.getAmountPerServing() * baseServings;
+            double scaledAmount = baseAmount * scalingFactor;
+
+            StringBuilder builder = new StringBuilder();
+            builder.append(ingredient.getName());
+            builder.append(" - ");
+            builder.append(numberFormat.format(scaledAmount));
+            builder.append(" ");
+            builder.append(ingredient.getUnit());
+            ingredient.getNotes().ifPresent(notes -> builder.append(" (").append(notes).append(")"));
+            ingredientListModel.addElement(builder.toString());
+        }
     }
 }
