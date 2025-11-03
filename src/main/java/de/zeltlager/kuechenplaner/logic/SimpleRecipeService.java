@@ -6,6 +6,7 @@ import de.zeltlager.kuechenplaner.data.model.RecipeWithIngredients;
 import de.zeltlager.kuechenplaner.data.model.ShoppingListItem;
 import de.zeltlager.kuechenplaner.data.repository.RecipeRepository;
 
+import java.text.Normalizer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,6 +25,8 @@ import java.util.stream.Collectors;
 public final class SimpleRecipeService implements RecipeService {
 
     private final RecipeRepository recipeRepository;
+    private static final UnitConverter UNIT_CONVERTER = new UnitConverter();
+    private static final IngredientCategorizer INGREDIENT_CATEGORIZER = new IngredientCategorizer();
 
     public SimpleRecipeService(RecipeRepository recipeRepository) {
         this.recipeRepository = Objects.requireNonNull(recipeRepository, "recipeRepository");
@@ -101,18 +104,36 @@ public final class SimpleRecipeService implements RecipeService {
 
             int servings = entry.getValue();
             for (Ingredient ingredient : recipe.getIngredients()) {
-                IngredientKey key = IngredientKey.from(ingredient);
+                ConvertedAmount convertedAmount = UNIT_CONVERTER.convert(ingredient.getUnit(),
+                        ingredient.getAmountPerServing() * servings);
+                String displayUnit = convertedAmount.unit();
+                IngredientKey key = IngredientKey.from(ingredient.getName(), displayUnit);
                 IngredientAggregation aggregation = aggregations.computeIfAbsent(key,
-                        unused -> new IngredientAggregation(ingredient.getName(), ingredient.getUnit()));
-                aggregation.addAmount(ingredient.getAmountPerServing() * servings);
+                        unused -> new IngredientAggregation(
+                                ingredient.getName(),
+                                displayUnit,
+                                INGREDIENT_CATEGORIZER.categorize(ingredient.getName()).orElse(null)));
+                aggregation.addAmount(convertedAmount.amount());
                 ingredient.getNotes().ifPresent(aggregation::addNote);
             }
         }
 
         return aggregations.values().stream()
                 .map(IngredientAggregation::toShoppingListItem)
-                .sorted(Comparator.comparing(item -> item.getName().toLowerCase(Locale.ROOT)))
+                .sorted(Comparator
+                        .comparing((ShoppingListItem item) -> item.getCategory()
+                                .map(value -> value.toLowerCase(Locale.ROOT))
+                                .orElse("\uFFFF"))
+                        .thenComparing(item -> item.getName().toLowerCase(Locale.ROOT)))
                 .collect(Collectors.toList());
+    }
+
+    private static String normalizeText(String value) {
+        String normalized = Normalizer.normalize(value.trim(), Normalizer.Form.NFD);
+        normalized = normalized.replaceAll("\\p{M}", "");
+        normalized = normalized.toLowerCase(Locale.ROOT);
+        normalized = normalized.replace("ß", "ss");
+        return normalized;
     }
 
     private void validateBaseServings(int baseServings) {
@@ -168,12 +189,8 @@ public final class SimpleRecipeService implements RecipeService {
             this.unit = unit;
         }
 
-        static IngredientKey from(Ingredient ingredient) {
-            return new IngredientKey(normalize(ingredient.getName()), normalize(ingredient.getUnit()));
-        }
-
-        private static String normalize(String value) {
-            return value.trim().toLowerCase(Locale.ROOT);
+        static IngredientKey from(String name, String unit) {
+            return new IngredientKey(normalizeText(name), normalizeText(unit));
         }
 
         @Override
@@ -196,12 +213,14 @@ public final class SimpleRecipeService implements RecipeService {
     private static final class IngredientAggregation {
         private final String name;
         private final String unit;
+        private final String category;
         private double totalAmount;
         private final LinkedHashSet<String> notes = new LinkedHashSet<>();
 
-        private IngredientAggregation(String name, String unit) {
+        private IngredientAggregation(String name, String unit, String category) {
             this.name = name;
             this.unit = unit;
+            this.category = category;
         }
 
         private void addAmount(double amount) {
@@ -216,7 +235,72 @@ public final class SimpleRecipeService implements RecipeService {
         }
 
         private ShoppingListItem toShoppingListItem() {
-            return new ShoppingListItem(name, unit, totalAmount, List.copyOf(notes));
+            return new ShoppingListItem(name, unit, totalAmount, List.copyOf(notes), category);
         }
+    }
+
+    private static final class UnitConverter {
+        private final Map<String, ConversionRule> conversions;
+
+        private UnitConverter() {
+            Map<String, ConversionRule> map = new LinkedHashMap<>();
+            register(map, "g", "g", 1.0);
+            register(map, "gramm", "g", 1.0);
+            register(map, "kg", "g", 1_000.0);
+            register(map, "kilogramm", "g", 1_000.0);
+            register(map, "ml", "ml", 1.0);
+            register(map, "milliliter", "ml", 1.0);
+            register(map, "l", "ml", 1_000.0);
+            register(map, "liter", "ml", 1_000.0);
+            this.conversions = Map.copyOf(map);
+        }
+
+        private void register(Map<String, ConversionRule> map, String unit, String canonicalUnit, double factor) {
+            map.put(normalizeText(unit), new ConversionRule(canonicalUnit, factor));
+        }
+
+        private ConvertedAmount convert(String unit, double amount) {
+            String trimmedUnit = unit.trim();
+            ConversionRule rule = conversions.get(normalizeText(unit));
+            if (rule == null) {
+                return new ConvertedAmount(amount, trimmedUnit);
+            }
+            return new ConvertedAmount(amount * rule.factor(), rule.canonicalUnit());
+        }
+    }
+
+    private record ConversionRule(String canonicalUnit, double factor) {
+    }
+
+    private record ConvertedAmount(double amount, String unit) {
+    }
+
+    private static final class IngredientCategorizer {
+        private final List<CategoryRule> rules;
+
+        private IngredientCategorizer() {
+            rules = List.of(
+                    new CategoryRule("Obst & Gemüse", List.of("apfel", "banane", "birne", "karotte", "möhre", "paprika", "tomate", "gurke", "zwiebel", "salat", "kartoffel")),
+                    new CategoryRule("Milchprodukte", List.of("milch", "käse", "quark", "joghurt", "butter", "sahne")),
+                    new CategoryRule("Fleisch & Fisch", List.of("hähnchen", "rind", "schwein", "fleisch", "fisch", "lachs")),
+                    new CategoryRule("Backwaren", List.of("brot", "brötchen", "toast", "croissant", "kuchen")),
+                    new CategoryRule("Getränke", List.of("wasser", "saft", "tee", "kaffee"))
+            );
+        }
+
+        private Optional<String> categorize(String ingredientName) {
+            String normalized = normalizeText(ingredientName);
+            for (CategoryRule rule : rules) {
+                for (String keyword : rule.keywords()) {
+                    if (normalized.contains(keyword)) {
+                        return Optional.of(rule.category());
+                    }
+                }
+            }
+            return Optional.empty();
+        }
+    }
+
+    private record CategoryRule(String category, List<String> keywords) {
     }
 }
