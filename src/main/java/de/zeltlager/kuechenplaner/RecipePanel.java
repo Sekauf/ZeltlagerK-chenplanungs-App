@@ -57,6 +57,7 @@ public class RecipePanel extends JPanel {
     private RecipeWithIngredients selectedRecipe;
     private javax.swing.SwingWorker<RecipeWithIngredients, Void> loadRecipeWorker;
     private boolean suppressTargetServingsChange;
+    private Runnable recipesUpdatedListener;
 
     public RecipePanel(RecipeService recipeService) {
         super(new BorderLayout());
@@ -227,6 +228,7 @@ public class RecipePanel extends JPanel {
                     tableModel.setRecipes(recipes);
                     statusLabel.setText(recipes.isEmpty() ? "Keine Rezepte vorhanden" : recipes.size() + " Rezepte");
                     restoreSelection(selectedId);
+                    notifyRecipesUpdated();
                 } catch (Exception e) {
                     showError("Rezepte konnten nicht geladen werden: " + e.getMessage());
                     statusLabel.setText("Fehler beim Laden");
@@ -490,6 +492,16 @@ public class RecipePanel extends JPanel {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Fehler", JOptionPane.ERROR_MESSAGE);
+    }
+
+    public void setRecipesUpdatedListener(Runnable listener) {
+        this.recipesUpdatedListener = listener;
+    }
+
+    private void notifyRecipesUpdated() {
+        if (recipesUpdatedListener != null) {
+            recipesUpdatedListener.run();
+        }
     }
 
     private void updateIngredientListForServings(RecipeWithIngredients recipe, int targetServings) {

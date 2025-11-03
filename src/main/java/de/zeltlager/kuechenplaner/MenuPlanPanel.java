@@ -37,6 +37,7 @@ public class MenuPlanPanel extends JPanel {
     private final JTextField mealField;
     private final JSpinner servingsSpinner;
     private final JLabel statusLabel;
+    private Runnable menuPlanUpdatedListener;
 
     public MenuPlanPanel(MenuPlanService menuPlanService) {
         super(new BorderLayout());
@@ -93,6 +94,7 @@ public class MenuPlanPanel extends JPanel {
                     List<MenuPlanEntry> entries = get();
                     tableModel.setEntries(entries);
                     statusLabel.setText(entries.isEmpty() ? "Keine Einträge vorhanden" : entries.size() + " Einträge");
+                    notifyMenuPlanUpdated();
                 } catch (Exception e) {
                     showError("Menüplan konnte nicht geladen werden: " + e.getMessage());
                     statusLabel.setText("Fehler beim Laden");
@@ -153,5 +155,15 @@ public class MenuPlanPanel extends JPanel {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, message, "Fehler", JOptionPane.ERROR_MESSAGE);
+    }
+
+    public void setMenuPlanUpdatedListener(Runnable listener) {
+        this.menuPlanUpdatedListener = listener;
+    }
+
+    private void notifyMenuPlanUpdated() {
+        if (menuPlanUpdatedListener != null) {
+            menuPlanUpdatedListener.run();
+        }
     }
 }
