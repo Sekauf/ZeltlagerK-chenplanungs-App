@@ -51,6 +51,7 @@ public class RecipePanel extends JPanel {
     private final JSpinner targetServingsSpinner;
     private final JTextArea instructionsArea;
     private final DefaultListModel<String> ingredientListModel;
+    private final JLabel ingredientHeaderLabel;
     private final JButton editButton;
 
     private RecipeWithIngredients selectedRecipe;
@@ -118,6 +119,7 @@ public class RecipePanel extends JPanel {
         instructionsArea.setWrapStyleWord(true);
         instructionsArea.setEditable(false);
         ingredientListModel = new DefaultListModel<>();
+        ingredientHeaderLabel = new JLabel("Zutaten:");
         editButton = new JButton("Bearbeiten…");
         editButton.addActionListener(event -> openDetailDialog());
 
@@ -189,7 +191,7 @@ public class RecipePanel extends JPanel {
         constraints.gridy++;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.weighty = 0.0;
-        formPanel.add(new JLabel("Zutaten:"), constraints);
+        formPanel.add(ingredientHeaderLabel, constraints);
 
         constraints.gridx = 1;
         constraints.fill = GridBagConstraints.BOTH;
@@ -321,6 +323,7 @@ public class RecipePanel extends JPanel {
         suppressTargetServingsChange = false;
         instructionsArea.setText("");
         ingredientListModel.clear();
+        ingredientHeaderLabel.setText("Zutaten:");
         updateDetailEnabled(false);
         cancelRecipeLoadWorker();
     }
@@ -492,6 +495,7 @@ public class RecipePanel extends JPanel {
     private void updateIngredientListForServings(RecipeWithIngredients recipe, int targetServings) {
         ingredientListModel.clear();
         if (recipe == null) {
+            ingredientHeaderLabel.setText("Zutaten:");
             return;
         }
 
@@ -502,6 +506,8 @@ public class RecipePanel extends JPanel {
         if (targetServings <= 0) {
             targetServings = 1;
         }
+
+        ingredientHeaderLabel.setText(String.format("Zutaten (für %d Personen):", targetServings));
 
         double scalingFactor = (double) targetServings / baseServings;
         NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.GERMANY);
