@@ -26,6 +26,7 @@ public class MainWindow {
     private final MenuPlanPanel menuPlanPanel;
     private final InventoryPanel inventoryPanel;
     private final RecipePanel recipePanel;
+    private final ShoppingListPanel shoppingListPanel;
 
     public MainWindow(MenuPlanService menuPlanService,
             InventoryService inventoryService,
@@ -41,6 +42,10 @@ public class MainWindow {
         menuPlanPanel = new MenuPlanPanel(menuPlanService);
         inventoryPanel = new InventoryPanel(inventoryService);
         recipePanel = new RecipePanel(recipeService);
+        shoppingListPanel = new ShoppingListPanel(menuPlanService, recipeService);
+
+        menuPlanPanel.setMenuPlanUpdatedListener(shoppingListPanel::reloadData);
+        recipePanel.setRecipesUpdatedListener(shoppingListPanel::reloadData);
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -96,6 +101,7 @@ public class MainWindow {
     private JTabbedPane createTabbedPane() {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Menüplan", menuPlanPanel);
+        tabbedPane.addTab("Einkaufsliste", shoppingListPanel);
         tabbedPane.addTab("Lagerbestand", inventoryPanel);
         tabbedPane.addTab("Rezepte", recipePanel);
         return tabbedPane;
