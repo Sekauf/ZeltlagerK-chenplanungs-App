@@ -16,11 +16,13 @@ import java.sql.Statement;
 public final class SqliteDatabase implements AutoCloseable {
 
     private final Connection connection;
+    private final Path databaseFile;
 
     public SqliteDatabase(Path databaseFile) {
         try {
-            ensureParentDirectoryExists(databaseFile);
-            this.connection = DriverManager.getConnection("jdbc:sqlite:" + databaseFile.toAbsolutePath());
+            this.databaseFile = databaseFile.toAbsolutePath();
+            ensureParentDirectoryExists(this.databaseFile);
+            this.connection = DriverManager.getConnection("jdbc:sqlite:" + this.databaseFile);
             initializeSchema();
             populateSampleDataIfEmpty();
         } catch (SQLException | IOException e) {
@@ -173,6 +175,33 @@ public final class SqliteDatabase implements AutoCloseable {
 
     public Connection getConnection() {
         return connection;
+    }
+
+    /**
+     * Returns the path to the active SQLite database file.
+     */
+    public Path getDatabaseFile() {
+        return databaseFile;
+    }
+
+    /**
+     * Creates a physical backup of the current database file using SQLite's VACUUM INTO command.
+     *
+     * @param targetFile the desired backup file location (either absolute or relative).
+     * @return the absolute path to the written backup file.
+     */
+    public Path backupTo(Path targetFile) {
+        Path absoluteTarget = targetFile.toAbsolutePath();
+        try {
+            ensureParentDirectoryExists(absoluteTarget);
+            try (Statement statement = connection.createStatement()) {
+                String escapedPath = absoluteTarget.toString().replace("'", "''");
+                statement.execute("VACUUM INTO '" + escapedPath + "'");
+            }
+            return absoluteTarget;
+        } catch (SQLException | IOException e) {
+            throw new IllegalStateException("Failed to create database backup", e);
+        }
     }
 
     @Override
