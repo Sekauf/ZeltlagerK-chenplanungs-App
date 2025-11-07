@@ -1,10 +1,11 @@
 package de.zeltlager.kuechenplaner;
 
-import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteDatabase;
+import de.zeltlager.kuechenplaner.backup.BackupService;
 import de.zeltlager.kuechenplaner.logic.InventoryService;
 import de.zeltlager.kuechenplaner.logic.MenuPlanService;
 import de.zeltlager.kuechenplaner.logic.RecipeService;
 import de.zeltlager.kuechenplaner.ui.UiTheme;
+import de.zeltlager.kuechenplaner.user.UserContext;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -16,6 +17,9 @@ import java.awt.event.WindowEvent;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.Box;
 import javax.swing.ButtonGroup;
@@ -32,11 +36,14 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Encapsulates the main application window and its navigation. The layout
  * mirrors the mock-up with a vertical navigation bar on the left and the
  * feature panels presented on the right inside a card layout.
  */
+@Component
 public class MainWindow {
 
     private final JFrame frame;
@@ -49,14 +56,19 @@ public class MainWindow {
     private final ShoppingListPanel shoppingListPanel;
     private final ImportExportPanel importExportPanel;
     private final SettingsPanel settingsPanel;
-
-    private final SqliteDatabase database;
+    private final BackupService backupService;
+    private final UserContext userContext;
+    private final List<Runnable> windowClosedListeners = new CopyOnWriteArrayList<>();
 
     public MainWindow(MenuPlanService menuPlanService,
             InventoryService inventoryService,
             RecipeService recipeService,
-            SqliteDatabase database) {
-        this.database = database;
+            BackupService backupService,
+            SettingsPanel settingsPanel,
+            UserContext userContext) {
+        this.backupService = Objects.requireNonNull(backupService, "backupService");
+        this.settingsPanel = Objects.requireNonNull(settingsPanel, "settingsPanel");
+        this.userContext = Objects.requireNonNull(userContext, "userContext");
 
         frame = new JFrame("Zeltlager Küchenplaner");
         frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
@@ -70,7 +82,8 @@ public class MainWindow {
         recipePanel = new RecipePanel(recipeService);
         shoppingListPanel = new ShoppingListPanel(menuPlanService, recipeService);
         importExportPanel = new ImportExportPanel(recipeService);
-        settingsPanel = new SettingsPanel();
+
+        settingsPanel.setOpaque(false);
 
         menuPlanPanel.setMenuPlanUpdatedListener(shoppingListPanel::reloadData);
         recipePanel.setRecipesUpdatedListener(shoppingListPanel::reloadData);
@@ -78,14 +91,13 @@ public class MainWindow {
             recipePanel.reloadData();
             shoppingListPanel.reloadData();
         });
+        settingsPanel.setUsersReloadRequestedListener(this::reloadAllData);
 
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
-                try {
-                    MainWindow.this.database.close();
-                } catch (Exception ex) {
-                    showErrorDialog("Datenbank konnte nicht geschlossen werden: " + ex.getMessage());
+                for (Runnable listener : windowClosedListeners) {
+                    listener.run();
                 }
             }
         });
@@ -104,6 +116,9 @@ public class MainWindow {
         frame.getContentPane().setLayout(new BorderLayout());
         frame.getContentPane().add(createNavigation(), BorderLayout.WEST);
         frame.getContentPane().add(contentPanel, BorderLayout.CENTER);
+
+        userContext.addListener(username -> SwingUtilities.invokeLater(this::reloadAllData));
+        settingsPanel.refreshUsers();
     }
 
     public void showWindow() {
@@ -111,14 +126,14 @@ public class MainWindow {
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
-        // initial data load
         SwingUtilities.invokeLater(() -> {
             showView(View.RECIPES);
-            menuPlanPanel.reloadData();
-            inventoryPanel.reloadData();
-            recipePanel.reloadData();
-            shoppingListPanel.reloadData();
+            reloadAllData();
         });
+    }
+
+    public void onWindowClosed(Runnable listener) {
+        windowClosedListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     private JMenuBar createMenuBar() {
@@ -170,7 +185,7 @@ public class MainWindow {
 
         navigation.add(Box.createVerticalGlue());
 
-        JLabel versionLabel = new JLabel("Version 0.2.0");
+        JLabel versionLabel = new JLabel("Version 0.3.0");
         versionLabel.setForeground(UiTheme.TEXT_MUTED);
         versionLabel.setAlignmentX(JLabel.LEFT_ALIGNMENT);
         navigation.add(versionLabel);
@@ -203,7 +218,7 @@ public class MainWindow {
 
     private void showAboutDialog() {
         JOptionPane.showMessageDialog(frame,
-                "Zeltlager Küchenplaner\nVersion 0.2.0\nDunkles UI-Layout inspiriert vom Mock-up.",
+                "Zeltlager Küchenplaner\nVersion 0.3.0\nDunkles UI-Layout inspiriert vom Mock-up.",
                 "Über",
                 JOptionPane.INFORMATION_MESSAGE);
     }
@@ -216,12 +231,9 @@ public class MainWindow {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Backup speichern");
 
-        Path databaseFile = database.getDatabaseFile();
-        String defaultBaseName = databaseFile != null && databaseFile.getFileName() != null
-                ? databaseFile.getFileName().toString().replaceFirst("\\.db$", "")
-                : "datenbank";
+        String defaultBaseName = "kuechenplaner";
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy-HHmm"));
-        String suggestedName = defaultBaseName + "-backup-" + timestamp + ".db";
+        String suggestedName = defaultBaseName + "-backup-" + timestamp + ".json";
         fileChooser.setSelectedFile(new java.io.File(suggestedName));
 
         int userSelection = fileChooser.showSaveDialog(frame);
@@ -231,7 +243,7 @@ public class MainWindow {
 
         Path targetPath = fileChooser.getSelectedFile().toPath();
         try {
-            Path writtenFile = database.backupTo(targetPath);
+            Path writtenFile = backupService.createBackup(targetPath);
             JOptionPane.showMessageDialog(frame,
                     "Backup erfolgreich erstellt:\n" + writtenFile,
                     "Backup abgeschlossen",
@@ -239,6 +251,14 @@ public class MainWindow {
         } catch (IllegalStateException ex) {
             showErrorDialog("Backup fehlgeschlagen: " + ex.getMessage());
         }
+    }
+
+    private void reloadAllData() {
+        menuPlanPanel.reloadData();
+        inventoryPanel.reloadData();
+        recipePanel.reloadData();
+        shoppingListPanel.reloadData();
+        settingsPanel.refreshUsers();
     }
 
     private enum View {
@@ -275,4 +295,3 @@ public class MainWindow {
         }
     }
 }
-

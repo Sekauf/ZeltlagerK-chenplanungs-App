@@ -7,9 +7,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Default implementation delegating to an {@link InventoryRepository}.
  */
+@Service
 public class SimpleInventoryService implements InventoryService {
 
     private final InventoryRepository inventoryRepository;

@@ -7,9 +7,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Default implementation delegating to a {@link MenuPlanRepository}.
  */
+@Service
 public class SimpleMenuPlanService implements MenuPlanService {
 
     private final MenuPlanRepository menuPlanRepository;

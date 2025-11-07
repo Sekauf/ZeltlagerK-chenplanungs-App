@@ -27,9 +27,12 @@ import java.util.Optional;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Default implementation of {@link RecipeService} that delegates to a {@link RecipeRepository}.
  */
+@Service
 public final class SimpleRecipeService implements RecipeService {
 
     private final RecipeRepository recipeRepository;

@@ -1,28 +1,17 @@
 package de.zeltlager.kuechenplaner;
 
-import de.zeltlager.kuechenplaner.data.repository.InventoryRepository;
-import de.zeltlager.kuechenplaner.data.repository.MenuPlanRepository;
-import de.zeltlager.kuechenplaner.data.repository.RecipeRepository;
-import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteDatabase;
-import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteInventoryRepository;
-import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteMenuPlanRepository;
-import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteRecipeRepository;
-import de.zeltlager.kuechenplaner.logic.InventoryService;
-import de.zeltlager.kuechenplaner.logic.MenuPlanService;
-import de.zeltlager.kuechenplaner.logic.RecipeService;
-import de.zeltlager.kuechenplaner.logic.SimpleInventoryService;
-import de.zeltlager.kuechenplaner.logic.SimpleMenuPlanService;
-import de.zeltlager.kuechenplaner.logic.SimpleRecipeService;
-
-import java.nio.file.Path;
-
 import javax.swing.SwingUtilities;
+
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Entry point for the kitchen planning application.
  */
+@SpringBootApplication
 public final class App {
 
     private App() {
@@ -30,40 +19,23 @@ public final class App {
     }
 
     public static void main(String[] args) {
-        Path databaseFile = Path.of("rezepte.db");
+        System.setProperty("java.awt.headless", "false");
 
-        SqliteDatabase database;
-        try {
-            database = new SqliteDatabase(databaseFile);
-        } catch (IllegalStateException e) {
-            System.err.println("Konnte Datenbank nicht initialisieren: " + e.getMessage());
-            e.printStackTrace();
-            return;
-        }
-
-        MenuPlanRepository menuPlanRepository = new SqliteMenuPlanRepository(database.getConnection());
-        InventoryRepository inventoryRepository = new SqliteInventoryRepository(database.getConnection());
-        RecipeRepository recipeRepository = new SqliteRecipeRepository(database.getConnection());
-
-        MenuPlanService menuPlanService = new SimpleMenuPlanService(menuPlanRepository);
-        InventoryService inventoryService = new SimpleInventoryService(inventoryRepository);
-        RecipeService recipeService = new SimpleRecipeService(recipeRepository);
+        ConfigurableApplicationContext context = new SpringApplicationBuilder(App.class)
+                .headless(false)
+                .run(args);
 
         UiTheme.apply();
 
         SwingUtilities.invokeLater(() -> {
             try {
-                MainWindow window = new MainWindow(menuPlanService, inventoryService, recipeService, database);
+                MainWindow window = context.getBean(MainWindow.class);
+                window.onWindowClosed(context::close);
                 window.showWindow();
             } catch (Exception e) {
                 System.err.println("Konnte das Hauptfenster nicht starten: " + e.getMessage());
                 e.printStackTrace();
-                try {
-                    database.close();
-                } catch (Exception closeException) {
-                    System.err.println("Datenbank konnte nicht geschlossen werden: " + closeException.getMessage());
-                    closeException.printStackTrace();
-                }
+                context.close();
             }
         });
     }
