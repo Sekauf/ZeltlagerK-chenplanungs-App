@@ -5,6 +5,7 @@ import de.zeltlager.kuechenplaner.data.model.RecipeWithIngredients;
 import de.zeltlager.kuechenplaner.data.model.ShoppingListItem;
 
 import java.io.Reader;
+import java.io.Writer;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +36,14 @@ public interface RecipeService {
     List<ShoppingListItem> generateShoppingList(List<RecipeSelection> selections);
 
     /**
+     * Exports all recipes in the repository into the provided writer.
+     *
+     * @param writer the writer to write the exported data to
+     * @param format the desired export format
+     */
+    void exportRecipes(Writer writer, ExportFormat format);
+
+    /**
      * Imports recipes from an external source and persists them using the current repository.
      *
      * @param reader the reader providing the external recipe data
@@ -42,6 +51,11 @@ public interface RecipeService {
      * @return the list of imported recipes as stored in the repository
      */
     List<RecipeWithIngredients> importRecipes(Reader reader, ImportFormat format);
+
+    enum ExportFormat {
+        CSV,
+        PLAIN_TEXT
+    }
 
     enum ImportFormat {
         CSV,

@@ -7,9 +7,12 @@ import de.zeltlager.kuechenplaner.data.model.ShoppingListItem;
 import de.zeltlager.kuechenplaner.data.repository.RecipeRepository;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.Writer;
 import java.text.Normalizer;
+import java.text.NumberFormat;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -134,6 +137,24 @@ public final class SimpleRecipeService implements RecipeService {
     }
 
     @Override
+    public void exportRecipes(Writer writer, ExportFormat format) {
+        Objects.requireNonNull(writer, "writer");
+        Objects.requireNonNull(format, "format");
+
+        List<RecipeWithIngredients> recipes = recipeRepository.findAll();
+        try {
+            switch (format) {
+                case CSV -> writeRecipesAsCsv(writer, recipes);
+                case PLAIN_TEXT -> writeRecipesAsPlainText(writer, recipes);
+                default -> throw new IllegalArgumentException("Unsupported export format: " + format);
+            }
+            writer.flush();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to export recipes", e);
+        }
+    }
+
+    @Override
     public List<RecipeWithIngredients> importRecipes(Reader reader, ImportFormat format) {
         Objects.requireNonNull(reader, "reader");
         Objects.requireNonNull(format, "format");
@@ -172,6 +193,147 @@ public final class SimpleRecipeService implements RecipeService {
             persisted.add(created);
         }
         return List.copyOf(persisted);
+    }
+
+    private void writeRecipesAsCsv(Writer writer, List<RecipeWithIngredients> recipes) throws IOException {
+        BufferedWriter bufferedWriter = writer instanceof BufferedWriter bw ? bw : new BufferedWriter(writer);
+        bufferedWriter.write("recipe_id;name;category_id;base_servings;instructions;ingredient_name;ingredient_unit;ingredient_amount_per_serving;ingredient_amount_total;ingredient_notes");
+        bufferedWriter.newLine();
+        if (recipes.isEmpty()) {
+            bufferedWriter.flush();
+            return;
+        }
+        for (RecipeWithIngredients recipe : recipes) {
+            Recipe baseRecipe = recipe.getRecipe();
+            List<Ingredient> ingredients = recipe.getIngredients();
+            String recipeId = baseRecipe.getId().map(String::valueOf).orElse("");
+            String categoryId = baseRecipe.getCategoryId().map(String::valueOf).orElse("");
+            String baseServings = Integer.toString(baseRecipe.getBaseServings());
+            String instructions = sanitizeInstructions(baseRecipe.getInstructions());
+            if (ingredients.isEmpty()) {
+                writeCsvLine(bufferedWriter,
+                        recipeId,
+                        baseRecipe.getName(),
+                        categoryId,
+                        baseServings,
+                        instructions,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "");
+                bufferedWriter.newLine();
+                continue;
+            }
+            for (Ingredient ingredient : ingredients) {
+                double amountPerServing = ingredient.getAmountPerServing();
+                double totalAmount = amountPerServing * baseRecipe.getBaseServings();
+                writeCsvLine(bufferedWriter,
+                        recipeId,
+                        baseRecipe.getName(),
+                        categoryId,
+                        baseServings,
+                        instructions,
+                        ingredient.getName(),
+                        ingredient.getUnit(),
+                        formatDecimal(amountPerServing),
+                        formatDecimal(totalAmount),
+                        ingredient.getNotes().orElse(""));
+                bufferedWriter.newLine();
+            }
+        }
+        bufferedWriter.flush();
+    }
+
+    private void writeRecipesAsPlainText(Writer writer, List<RecipeWithIngredients> recipes) throws IOException {
+        BufferedWriter bufferedWriter = writer instanceof BufferedWriter bw ? bw : new BufferedWriter(writer);
+        NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.GERMANY);
+        numberFormat.setMaximumFractionDigits(2);
+        numberFormat.setMinimumFractionDigits(0);
+        numberFormat.setGroupingUsed(false);
+
+        for (int i = 0; i < recipes.size(); i++) {
+            RecipeWithIngredients recipe = recipes.get(i);
+            Recipe baseRecipe = recipe.getRecipe();
+            bufferedWriter.write(baseRecipe.getName());
+            bufferedWriter.newLine();
+            bufferedWriter.write("Kategorie-ID: " + baseRecipe.getCategoryId().map(String::valueOf).orElse("-"));
+            bufferedWriter.newLine();
+            bufferedWriter.write("Portionen: " + baseRecipe.getBaseServings());
+            bufferedWriter.newLine();
+            bufferedWriter.write("Zutaten:");
+            bufferedWriter.newLine();
+            if (recipe.getIngredients().isEmpty()) {
+                bufferedWriter.write("  (keine Zutaten erfasst)");
+                bufferedWriter.newLine();
+            } else {
+                for (Ingredient ingredient : recipe.getIngredients()) {
+                    double totalAmount = ingredient.getAmountPerServing() * baseRecipe.getBaseServings();
+                    StringBuilder line = new StringBuilder();
+                    line.append("  - ").append(numberFormat.format(totalAmount));
+                    if (!ingredient.getUnit().isBlank()) {
+                        line.append(' ').append(ingredient.getUnit());
+                    }
+                    line.append(' ').append(ingredient.getName());
+                    ingredient.getNotes().ifPresent(notes -> line.append(" (").append(notes).append(')'));
+                    bufferedWriter.write(line.toString());
+                    bufferedWriter.newLine();
+                }
+            }
+            bufferedWriter.write("Anleitung:");
+            bufferedWriter.newLine();
+            String instructions = baseRecipe.getInstructions().strip();
+            if (instructions.isEmpty()) {
+                bufferedWriter.write("  (keine Anleitung vorhanden)");
+                bufferedWriter.newLine();
+            } else {
+                for (String instructionLine : instructions.split("\\r?\\n")) {
+                    bufferedWriter.write("  " + instructionLine);
+                    bufferedWriter.newLine();
+                }
+            }
+            if (i + 1 < recipes.size()) {
+                bufferedWriter.newLine();
+                bufferedWriter.write("----------------------------------------");
+                bufferedWriter.newLine();
+                bufferedWriter.newLine();
+            }
+        }
+        bufferedWriter.flush();
+    }
+
+    private String sanitizeInstructions(String instructions) {
+        return instructions.replace("\\r\\n", "\\n").replace("\\r", "\\n").replace("\\n", "\\\\n").strip();
+    }
+
+    private void writeCsvLine(Writer writer, String... values) throws IOException {
+        for (int i = 0; i < values.length; i++) {
+            if (i > 0) {
+                writer.write(';');
+            }
+            writer.write(escapeCsvValue(values[i]));
+        }
+    }
+
+    private String escapeCsvValue(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        boolean needsQuotes = value.indexOf(';') >= 0
+                || value.indexOf(',') >= 0
+                || value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0
+                || value.indexOf('\r') >= 0;
+        String sanitized = value.replace("\"", "\"\"");
+        return needsQuotes ? '"' + sanitized + '"' : sanitized;
+    }
+
+    private String formatDecimal(double value) {
+        NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.US);
+        numberFormat.setMaximumFractionDigits(4);
+        numberFormat.setMinimumFractionDigits(0);
+        numberFormat.setGroupingUsed(false);
+        return numberFormat.format(value);
     }
 
     private List<ImportedRecipe> parseCsv(Reader reader) throws IOException {
