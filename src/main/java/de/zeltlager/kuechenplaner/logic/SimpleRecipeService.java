@@ -349,7 +349,8 @@ public final class SimpleRecipeService implements RecipeService {
             return List.of();
         }
 
-        List<String> headers = parseCsvLine(headerLine);
+        char delimiter = detectCsvDelimiter(headerLine);
+        List<String> headers = parseCsvLine(headerLine, delimiter);
         if (headers.isEmpty()) {
             throw new IllegalArgumentException("CSV import requires at least one header column");
         }
@@ -370,7 +371,7 @@ public final class SimpleRecipeService implements RecipeService {
                 continue;
             }
 
-            List<String> values = parseCsvLine(line);
+            List<String> values = parseCsvLine(line, delimiter);
             while (values.size() < headers.size()) {
                 values.add("");
             }
@@ -431,7 +432,36 @@ public final class SimpleRecipeService implements RecipeService {
                 .collect(Collectors.toList());
     }
 
-    private List<String> parseCsvLine(String line) {
+    private char detectCsvDelimiter(String line) {
+        boolean inQuotes = false;
+        int semicolonCount = 0;
+        int commaCount = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+            if (ch == '"') {
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (!inQuotes) {
+                if (ch == ';') {
+                    semicolonCount++;
+                } else if (ch == ',') {
+                    commaCount++;
+                }
+            }
+        }
+        if (semicolonCount > 0 || commaCount > 0) {
+            if (semicolonCount >= commaCount) {
+                return ';';
+            }
+            return ',';
+        }
+        return ';';
+    }
+
+    private List<String> parseCsvLine(String line, char delimiter) {
         List<String> values = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean inQuotes = false;
@@ -451,7 +481,7 @@ public final class SimpleRecipeService implements RecipeService {
             } else {
                 if (ch == '"') {
                     inQuotes = true;
-                } else if (ch == ';' || ch == ',') {
+                } else if (ch == delimiter) {
                     values.add(current.toString());
                     current.setLength(0);
                 } else {
