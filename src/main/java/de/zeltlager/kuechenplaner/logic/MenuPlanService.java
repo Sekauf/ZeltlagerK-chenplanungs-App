@@ -15,4 +15,6 @@ public interface MenuPlanService {
     List<MenuPlanEntry> getMenuPlan(LocalDate date);
 
     void addMenuPlanEntry(MenuPlanEntry entry);
+
+    void deleteMenuPlanEntry(MenuPlanEntry entry);
 }

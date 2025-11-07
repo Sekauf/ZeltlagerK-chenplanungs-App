@@ -32,4 +32,9 @@ public class SimpleMenuPlanService implements MenuPlanService {
     public void addMenuPlanEntry(MenuPlanEntry entry) {
         menuPlanRepository.save(Objects.requireNonNull(entry, "entry"));
     }
+
+    @Override
+    public void deleteMenuPlanEntry(MenuPlanEntry entry) {
+        menuPlanRepository.delete(Objects.requireNonNull(entry, "entry"));
+    }
 }

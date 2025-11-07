@@ -61,6 +61,19 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
         }
     }
 
+    @Override
+    public void delete(MenuPlanEntry entry) {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM menu_plan WHERE date = ? AND meal_name = ? AND servings = ?")) {
+            statement.setString(1, DATE_FORMATTER.format(entry.getDate()));
+            statement.setString(2, entry.getMeal().getName());
+            statement.setInt(3, entry.getMeal().getServings());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to delete menu plan entry", e);
+        }
+    }
+
     private List<MenuPlanEntry> queryEntries(String sql, String... parameters) {
         List<MenuPlanEntry> result = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {

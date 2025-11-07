@@ -32,4 +32,11 @@ public class InMemoryMenuPlanRepository implements MenuPlanRepository {
     public void save(MenuPlanEntry entry) {
         entries.add(entry);
     }
+
+    @Override
+    public void delete(MenuPlanEntry entry) {
+        entries.removeIf(existing -> existing.getDate().equals(entry.getDate())
+                && existing.getMeal().getName().equals(entry.getMeal().getName())
+                && existing.getMeal().getServings() == entry.getMeal().getServings());
+    }
 }

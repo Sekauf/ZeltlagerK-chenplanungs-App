@@ -15,4 +15,6 @@ public interface MenuPlanRepository {
     List<MenuPlanEntry> findByDate(LocalDate date);
 
     void save(MenuPlanEntry entry);
+
+    void delete(MenuPlanEntry entry);
 }

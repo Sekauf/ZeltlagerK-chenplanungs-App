@@ -13,6 +13,7 @@ import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.ListSelectionModel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -31,28 +32,42 @@ public class MenuPlanPanel extends JPanel {
 
     private final MenuPlanService menuPlanService;
     private final MenuPlanTableModel tableModel;
+    private final JTable table;
     private final JButton reloadButton;
     private final JButton addButton;
+    private final JButton deleteButton;
     private final JTextField dateField;
     private final JTextField mealField;
     private final JSpinner servingsSpinner;
     private final JLabel statusLabel;
     private Runnable menuPlanUpdatedListener;
+    private boolean deleteInProgress;
 
     public MenuPlanPanel(MenuPlanService menuPlanService) {
         super(new BorderLayout());
         this.menuPlanService = menuPlanService;
         this.tableModel = new MenuPlanTableModel();
 
-        JTable table = new JTable(tableModel);
+        table = new JTable(tableModel);
         table.setAutoCreateRowSorter(true);
         table.setFillsViewportHeight(true);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.getSelectionModel().addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) {
+                updateDeleteButtonState();
+            }
+        });
         add(new JScrollPane(table), BorderLayout.CENTER);
 
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         reloadButton = new JButton("Aktualisieren");
         reloadButton.addActionListener(event -> reloadData());
         topPanel.add(reloadButton);
+
+        deleteButton = new JButton("Auswahl löschen");
+        deleteButton.setEnabled(false);
+        deleteButton.addActionListener(event -> deleteSelectedEntry());
+        topPanel.add(deleteButton);
 
         statusLabel = new JLabel(" ");
         topPanel.add(statusLabel);
@@ -94,10 +109,15 @@ public class MenuPlanPanel extends JPanel {
                     List<MenuPlanEntry> entries = get();
                     tableModel.setEntries(entries);
                     statusLabel.setText(entries.isEmpty() ? "Keine Einträge vorhanden" : entries.size() + " Einträge");
+                    table.clearSelection();
+                    deleteInProgress = false;
+                    updateDeleteButtonState();
                     notifyMenuPlanUpdated();
                 } catch (Exception e) {
                     showError("Menüplan konnte nicht geladen werden: " + e.getMessage());
                     statusLabel.setText("Fehler beim Laden");
+                    deleteInProgress = false;
+                    updateDeleteButtonState();
                 } finally {
                     reloadButton.setEnabled(true);
                 }
@@ -146,11 +166,70 @@ public class MenuPlanPanel extends JPanel {
         }.execute();
     }
 
+    private void deleteSelectedEntry() {
+        if (deleteInProgress) {
+            return;
+        }
+
+        int viewRow = table.getSelectedRow();
+        if (viewRow < 0) {
+            showError("Bitte einen Eintrag auswählen, der gelöscht werden soll.");
+            return;
+        }
+
+        int modelRow = table.convertRowIndexToModel(viewRow);
+        MenuPlanEntry entry = tableModel.getEntry(modelRow);
+
+        int choice = JOptionPane.showConfirmDialog(this,
+                "Soll der Eintrag für " + DATE_FORMATTER.format(entry.getDate()) + " ("
+                        + entry.getMeal().getName() + ") wirklich gelöscht werden?",
+                "Eintrag löschen",
+                JOptionPane.YES_NO_OPTION);
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        deleteInProgress = true;
+        statusLabel.setText("Lösche Eintrag...");
+        updateDeleteButtonState();
+        reloadButton.setEnabled(false);
+
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                menuPlanService.deleteMenuPlanEntry(entry);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    table.clearSelection();
+                    deleteInProgress = false;
+                    updateDeleteButtonState();
+                    reloadData();
+                } catch (Exception e) {
+                    deleteInProgress = false;
+                    showError("Eintrag konnte nicht gelöscht werden: " + e.getMessage());
+                    statusLabel.setText("Fehler beim Löschen");
+                    reloadButton.setEnabled(true);
+                    updateDeleteButtonState();
+                }
+            }
+        }.execute();
+    }
+
     private void toggleFormEnabled(boolean enabled) {
         addButton.setEnabled(enabled);
         dateField.setEnabled(enabled);
         mealField.setEnabled(enabled);
         servingsSpinner.setEnabled(enabled);
+    }
+
+    private void updateDeleteButtonState() {
+        boolean hasSelection = table.getSelectedRow() >= 0;
+        deleteButton.setEnabled(hasSelection && !deleteInProgress);
     }
 
     private void showError(String message) {
