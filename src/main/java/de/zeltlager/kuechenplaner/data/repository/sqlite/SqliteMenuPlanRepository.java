@@ -9,8 +9,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,13 +23,22 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final DateTimeFormatter LEGACY_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final DateTimeFormatter LEGACY_DATE_TIME_FORMATTER = DateTimeFormatter
-            .ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final DateTimeFormatter[] SUPPORTED_DATE_TIME_FORMATTERS = {
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
-            DateTimeFormatter.ISO_DATE_TIME,
-            LEGACY_DATE_TIME_FORMATTER
-    };
+    private static final DateTimeFormatter FLEXIBLE_DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .append(DateTimeFormatter.ISO_LOCAL_DATE)
+            .optionalStart()
+                .optionalStart()
+                    .appendLiteral('T')
+                .optionalEnd()
+                .optionalStart()
+                    .appendLiteral(' ')
+                .optionalEnd()
+                .append(DateTimeFormatter.ISO_LOCAL_TIME)
+                .optionalStart()
+                    .appendOffset("+HH:MM", "Z")
+                .optionalEnd()
+            .optionalEnd()
+            .toFormatter();
 
     private final Connection connection;
 
@@ -101,21 +110,31 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
     }
 
     private LocalDate parseDate(String value) {
+        if (value == null) {
+            throw new IllegalStateException("Date value must not be null");
+        }
+
+        String sanitizedValue = value.trim();
+        if (sanitizedValue.isEmpty()) {
+            throw new IllegalStateException("Date value must not be blank");
+        }
+
         try {
-            return LocalDate.parse(value, DATE_FORMATTER);
-        } catch (DateTimeParseException dateParseException) {
-            try {
-                return LocalDate.parse(value, LEGACY_DATE_FORMATTER);
-            } catch (DateTimeParseException legacyDateParseException) {
-                for (DateTimeFormatter formatter : SUPPORTED_DATE_TIME_FORMATTERS) {
-                    try {
-                        return LocalDateTime.parse(value, formatter).toLocalDate();
-                    } catch (DateTimeParseException ignored) {
-                        // try next formatter
-                    }
-                }
-                throw new IllegalStateException("Unsupported date format: " + value, legacyDateParseException);
-            }
+            return LocalDate.parse(sanitizedValue, DATE_FORMATTER);
+        } catch (DateTimeParseException ignored) {
+            // try legacy format
+        }
+
+        try {
+            return LocalDate.parse(sanitizedValue, LEGACY_DATE_FORMATTER);
+        } catch (DateTimeParseException ignored) {
+            // try flexible date-time format below
+        }
+
+        try {
+            return LocalDate.from(FLEXIBLE_DATE_TIME_FORMATTER.parse(sanitizedValue));
+        } catch (DateTimeParseException parseException) {
+            throw new IllegalStateException("Unsupported date format: " + value, parseException);
         }
     }
 }
