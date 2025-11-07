@@ -4,6 +4,7 @@ plugins {
     id 'org.springframework.boot' version '3.2.5'
     id 'io.spring.dependency-management' version '1.1.4'
     id 'org.beryx.runtime' version '1.13.1'
+    id 'jacoco'
 }
 
 group = 'de.zeltlager.kuechenplaner'
@@ -54,8 +55,50 @@ dependencies {
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    testImplementation 'org.assertj:assertj-core:3.25.3'
 }
 
 test {
     useJUnitPlatform()
 }
+
+def coverageExclusions = [
+        'de/zeltlager/kuechenplaner/App*.class',
+        'de/zeltlager/kuechenplaner/MainWindow*.class',
+        'de/zeltlager/kuechenplaner/*Panel*.class',
+        'de/zeltlager/kuechenplaner/*TableModel*.class',
+        'de/zeltlager/kuechenplaner/RecipeDetailDialog*.class',
+        'de/zeltlager/kuechenplaner/gui/**',
+        'de/zeltlager/kuechenplaner/ui/**',
+        'de/zeltlager/kuechenplaner/config/**'
+]
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        csv.required = false
+        html.required = true
+    }
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: coverageExclusions)
+    }))
+}
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: coverageExclusions)
+    }))
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.7
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
