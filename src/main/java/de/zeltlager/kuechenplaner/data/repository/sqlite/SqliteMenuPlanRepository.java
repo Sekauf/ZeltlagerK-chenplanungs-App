@@ -9,7 +9,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -20,6 +22,7 @@ import java.util.Objects;
 public class SqliteMenuPlanRepository implements MenuPlanRepository {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final Connection connection;
 
@@ -70,9 +73,18 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
     }
 
     private MenuPlanEntry mapRow(ResultSet resultSet) throws SQLException {
-        LocalDate date = LocalDate.parse(resultSet.getString("date"), DATE_FORMATTER);
+        String dateValue = resultSet.getString("date");
+        LocalDate date = parseDate(dateValue);
         String mealName = resultSet.getString("meal_name");
         int servings = resultSet.getInt("servings");
         return new MenuPlanEntry(date, new Meal(mealName, servings));
+    }
+
+    private LocalDate parseDate(String value) {
+        try {
+            return LocalDate.parse(value, DATE_FORMATTER);
+        } catch (DateTimeParseException ignored) {
+            return LocalDateTime.parse(value, DATE_TIME_FORMATTER).toLocalDate();
+        }
     }
 }
