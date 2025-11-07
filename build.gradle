@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'org.beryx.runtime' version '1.13.1'
 }
 
 group = 'de.zeltlager.kuechenplaner'
@@ -14,6 +15,18 @@ java {
 
 application {
     mainClass = 'de.zeltlager.kuechenplaner.App'
+}
+
+runtime {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+
+    jpackage {
+        imageName = 'Kuechenplaner'
+        installerName = "Kuechenplaner-${project.version}"
+        installerType = 'exe'
+        appVersion = project.version
+        installerOptions += ['--win-menu', '--win-shortcut']
+    }
 }
 
 repositories {

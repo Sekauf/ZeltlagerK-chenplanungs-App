@@ -31,6 +31,16 @@ Die Klassen werden im Einstiegspunkt `de.zeltlager.kuechenplaner.App` zusammenge
 ./gradlew test
 ```
 
+### Windows-Installer erstellen
+
+Das Projekt kann mit Hilfe von [jpackage](https://docs.oracle.com/en/java/javase/21/jpackage/packaging-overview.html) als eigenständige Windows-Executable verpackt werden. Voraussetzung ist eine Java-21-Installation mit enthaltenem `jpackage`-Tool (z. B. das Oracle JDK oder das Temurin JDK). Führe anschließend auf einem Windows-System:
+
+```powershell
+./gradlew jpackage
+```
+
+Der Installer (`.exe`) sowie das entpackte Runtime-Image werden unter `build/jpackage/` abgelegt. Die Anwendung bringt dabei eine eigene schlanke Java-Laufzeitumgebung mit und lässt sich dadurch offline starten.
+
 ## Nächste Schritte
 
 - Implementierung einer echten Benutzeroberfläche (Desktop oder Web)
