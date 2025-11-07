@@ -96,7 +96,7 @@ public final class SqliteDatabase implements AutoCloseable {
     private long insertSampleRecipe(String name, Long categoryId, int baseServings, String instructions) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO recipes (name, category_id, base_servings, instructions, created_at, updated_at)"
-                        + " VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
+                        + " VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
                 Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, name);
             if (categoryId != null) {
