@@ -130,7 +130,7 @@ public class MainWindow {
         String defaultBaseName = databaseFile != null && databaseFile.getFileName() != null
                 ? databaseFile.getFileName().toString().replaceFirst("\\.db$", "")
                 : "datenbank";
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"));
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy-HHmm"));
         String suggestedName = defaultBaseName + "-backup-" + timestamp + ".db";
         fileChooser.setSelectedFile(new File(suggestedName));
 

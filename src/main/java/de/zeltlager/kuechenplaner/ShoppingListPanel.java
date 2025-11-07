@@ -44,7 +44,7 @@ import javax.swing.table.DefaultTableCellRenderer;
  */
 public class ShoppingListPanel extends JPanel {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     private final MenuPlanService menuPlanService;
     private final RecipeService recipeService;
