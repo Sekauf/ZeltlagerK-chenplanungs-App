@@ -9,6 +9,12 @@ import de.zeltlager.kuechenplaner.logic.RecipeService;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.print.PrinterException;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
@@ -22,6 +28,7 @@ import java.util.stream.Collectors;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -49,6 +56,7 @@ public class ShoppingListPanel extends JPanel {
     private final JTextArea infoTextArea;
     private SwingWorker<ShoppingListData, Void> reloadWorker;
     private boolean reloadPending;
+    private ShoppingListData lastData;
 
     public ShoppingListPanel(MenuPlanService menuPlanService, RecipeService recipeService) {
         super(new BorderLayout());
@@ -70,6 +78,10 @@ public class ShoppingListPanel extends JPanel {
         JButton printButton = new JButton("Drucken…");
         printButton.addActionListener(event -> printTable());
         topPanel.add(printButton);
+
+        JButton exportButton = new JButton("Exportieren…");
+        exportButton.addActionListener(event -> exportShoppingList());
+        topPanel.add(exportButton);
 
         statusLabel = new JLabel(" ");
         topPanel.add(statusLabel);
@@ -143,12 +155,14 @@ public class ShoppingListPanel extends JPanel {
                     }
                     ShoppingListData data = get();
                     tableModel.setItems(data.items());
+                    lastData = data;
                     updateStatusLabel(data);
                     updateInfoPanel(data);
                 } catch (Exception e) {
                     showError("Einkaufsliste konnte nicht geladen werden: " + e.getMessage());
                     statusLabel.setText("Fehler beim Laden");
                     tableModel.setItems(List.of());
+                    lastData = null;
                     infoContainer.setVisible(false);
                 } finally {
                     reloadButton.setEnabled(true);
@@ -196,6 +210,99 @@ public class ShoppingListPanel extends JPanel {
         } catch (PrinterException e) {
             showError("Drucken nicht möglich: " + e.getMessage());
         }
+    }
+
+    private void exportShoppingList() {
+        if (tableModel.getRowCount() == 0) {
+            showError("Es sind keine Einkaufsposten zum Exportieren vorhanden.");
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Einkaufsliste exportieren");
+        fileChooser.setSelectedFile(new File("Einkaufsliste.txt"));
+
+        int result = fileChooser.showSaveDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File selectedFile = ensureTxtExtension(fileChooser.getSelectedFile());
+        if (selectedFile.exists()) {
+            int overwrite = JOptionPane.showConfirmDialog(
+                    this,
+                    "Die Datei existiert bereits. Überschreiben?",
+                    "Datei überschreiben",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+            if (overwrite != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+
+        try {
+            writeShoppingListToFile(selectedFile.toPath());
+            JOptionPane.showMessageDialog(this, "Einkaufsliste wurde exportiert.", "Export abgeschlossen", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            showError("Einkaufsliste konnte nicht exportiert werden: " + e.getMessage());
+        }
+    }
+
+    private File ensureTxtExtension(File file) {
+        if (file.getName().contains(".")) {
+            return file;
+        }
+        return new File(file.getParentFile(), file.getName() + ".txt");
+    }
+
+    private void writeShoppingListToFile(Path path) throws IOException {
+        NumberFormat numberFormat = createNumberFormat();
+        try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+            writer.write("Einkaufsliste");
+            writer.newLine();
+            writer.newLine();
+
+            if (lastData != null) {
+                writer.write("Menüeinträge insgesamt: " + lastData.totalMenuEntries());
+                writer.newLine();
+                if (!lastData.missingMeals().isEmpty()) {
+                    writer.write("Nicht zugeordnete Menüeinträge:");
+                    writer.newLine();
+                    for (String missing : lastData.missingMeals()) {
+                        writer.write("  • " + missing);
+                        writer.newLine();
+                    }
+                    writer.newLine();
+                }
+            }
+
+            writeColumnHeaders(writer);
+            for (int row = 0; row < table.getRowCount(); row++) {
+                int modelRow = table.convertRowIndexToModel(row);
+                ShoppingListItem item = tableModel.getItem(modelRow);
+                String category = item.getCategory().orElse("-");
+                String amount = numberFormat.format(item.getTotalAmount());
+                String notes = item.getNotes().isEmpty() ? "" : String.join(", ", item.getNotes());
+                writer.write(String.join("\t",
+                        category,
+                        item.getName(),
+                        amount,
+                        item.getUnit(),
+                        notes));
+                writer.newLine();
+            }
+        }
+    }
+
+    private void writeColumnHeaders(BufferedWriter writer) throws IOException {
+        List<String> headers = new ArrayList<>();
+        for (int column = 0; column < tableModel.getColumnCount(); column++) {
+            headers.add(tableModel.getColumnName(column));
+        }
+        writer.write(String.join("\t", headers));
+        writer.newLine();
+        writer.write("--------------------------------------------------------------");
+        writer.newLine();
     }
 
     private DefaultTableCellRenderer createAmountRenderer() {
