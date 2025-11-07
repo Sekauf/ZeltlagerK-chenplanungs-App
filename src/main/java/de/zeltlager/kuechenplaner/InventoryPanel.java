@@ -17,6 +17,9 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
+
+import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that displays and updates the inventory backed by the SQLite database.
@@ -33,42 +36,62 @@ public class InventoryPanel extends JPanel {
     private final JLabel statusLabel;
 
     public InventoryPanel(InventoryService inventoryService) {
-        super(new BorderLayout());
+        super(new BorderLayout(16, 16));
         this.inventoryService = inventoryService;
         this.tableModel = new InventoryTableModel();
+
+        setOpaque(false);
+        setBorder(new EmptyBorder(0, 0, 0, 0));
 
         JTable table = new JTable(tableModel);
         table.setAutoCreateRowSorter(true);
         table.setFillsViewportHeight(true);
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        UiTheme.styleTable(table);
 
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        reloadButton = new JButton("Aktualisieren");
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        UiTheme.styleScrollPane(tableScrollPane);
+
+        reloadButton = UiTheme.createSecondaryButton("Aktualisieren");
         reloadButton.addActionListener(event -> reloadData());
-        topPanel.add(reloadButton);
 
-        statusLabel = new JLabel(" ");
-        topPanel.add(statusLabel);
-        add(topPanel, BorderLayout.NORTH);
+        statusLabel = new JLabel("Bereit");
+        statusLabel.setForeground(UiTheme.TEXT_MUTED);
 
-        JPanel formPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        formPanel.add(new JLabel("Zutat:"));
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        headerActions.setOpaque(false);
+        headerActions.add(statusLabel);
+        headerActions.add(reloadButton);
+
+        add(UiTheme.createHeader("Lagerbestand", headerActions), BorderLayout.NORTH);
+
+        JPanel tableCard = UiTheme.createCard(new BorderLayout());
+        tableCard.add(tableScrollPane, BorderLayout.CENTER);
+        add(tableCard, BorderLayout.CENTER);
+
+        JPanel formCard = UiTheme.createCard(new FlowLayout(FlowLayout.LEFT, 12, 8));
+        formCard.add(new JLabel("Zutat:"));
         ingredientField = new JTextField(15);
-        formPanel.add(ingredientField);
+        UiTheme.styleTextField(ingredientField);
+        formCard.add(ingredientField);
 
-        formPanel.add(new JLabel("Menge:"));
+        formCard.add(new JLabel("Menge:"));
         quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 0, 100000, 1));
-        formPanel.add(quantitySpinner);
+        JSpinner.DefaultEditor quantityEditor = (JSpinner.DefaultEditor) quantitySpinner.getEditor();
+        quantityEditor.getTextField().setBackground(UiTheme.SURFACE_ALT);
+        quantityEditor.getTextField().setForeground(UiTheme.TEXT_PRIMARY);
+        quantityEditor.getTextField().setBorder(new EmptyBorder(8, 8, 8, 8));
+        formCard.add(quantitySpinner);
 
-        formPanel.add(new JLabel("Einheit:"));
+        formCard.add(new JLabel("Einheit:"));
         unitField = new JTextField(8);
-        formPanel.add(unitField);
+        UiTheme.styleTextField(unitField);
+        formCard.add(unitField);
 
-        saveButton = new JButton("Speichern");
+        saveButton = UiTheme.createPrimaryButton("Speichern");
         saveButton.addActionListener(event -> saveItem());
-        formPanel.add(saveButton);
+        formCard.add(saveButton);
 
-        add(formPanel, BorderLayout.SOUTH);
+        add(formCard, BorderLayout.SOUTH);
     }
 
     public void reloadData() {

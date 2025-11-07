@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -38,6 +37,9 @@ import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.border.EmptyBorder;
+
+import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that renders a consolidated shopping list for the selected menu plan.
@@ -59,45 +61,56 @@ public class ShoppingListPanel extends JPanel {
     private ShoppingListData lastData;
 
     public ShoppingListPanel(MenuPlanService menuPlanService, RecipeService recipeService) {
-        super(new BorderLayout());
+        super(new BorderLayout(16, 16));
         this.menuPlanService = Objects.requireNonNull(menuPlanService, "menuPlanService");
         this.recipeService = Objects.requireNonNull(recipeService, "recipeService");
         this.tableModel = new ShoppingListTableModel();
+
+        setOpaque(false);
+        setBorder(new EmptyBorder(0, 0, 0, 0));
 
         table = new JTable(tableModel);
         table.setAutoCreateRowSorter(true);
         table.setFillsViewportHeight(true);
         table.setDefaultRenderer(Double.class, createAmountRenderer());
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        UiTheme.styleTable(table);
 
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        reloadButton = new JButton("Aktualisieren");
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        UiTheme.styleScrollPane(tableScrollPane);
+
+        reloadButton = UiTheme.createSecondaryButton("Aktualisieren");
         reloadButton.addActionListener(event -> reloadData());
-        topPanel.add(reloadButton);
 
-        JButton printButton = new JButton("Drucken…");
+        JButton printButton = UiTheme.createSecondaryButton("Drucken…");
         printButton.addActionListener(event -> printTable());
-        topPanel.add(printButton);
 
-        JButton exportButton = new JButton("Exportieren…");
+        JButton exportButton = UiTheme.createPrimaryButton("Exportieren…");
         exportButton.addActionListener(event -> exportShoppingList());
-        topPanel.add(exportButton);
 
-        statusLabel = new JLabel(" ");
-        topPanel.add(statusLabel);
-        add(topPanel, BorderLayout.NORTH);
+        statusLabel = new JLabel("Bereit");
+        statusLabel.setForeground(UiTheme.TEXT_MUTED);
 
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        headerActions.setOpaque(false);
+        headerActions.add(statusLabel);
+        headerActions.add(reloadButton);
+        headerActions.add(printButton);
+        headerActions.add(exportButton);
+
+        add(UiTheme.createHeader("Einkaufsliste", headerActions), BorderLayout.NORTH);
+
+        JPanel tableCard = UiTheme.createCard(new BorderLayout());
+        tableCard.add(tableScrollPane, BorderLayout.CENTER);
+        add(tableCard, BorderLayout.CENTER);
         infoTextArea = new JTextArea(3, 40);
         infoTextArea.setEditable(false);
         infoTextArea.setLineWrap(true);
         infoTextArea.setWrapStyleWord(true);
         infoTextArea.setOpaque(false);
         infoTextArea.setBorder(null);
+        infoTextArea.setForeground(UiTheme.TEXT_MUTED);
 
-        infoContainer = new JPanel(new BorderLayout());
-        infoContainer.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createEmptyBorder(8, 8, 8, 8),
-                BorderFactory.createTitledBorder("Hinweise")));
+        infoContainer = UiTheme.createCard(new BorderLayout());
         infoContainer.add(infoTextArea, BorderLayout.CENTER);
         infoContainer.setVisible(false);
         add(infoContainer, BorderLayout.SOUTH);

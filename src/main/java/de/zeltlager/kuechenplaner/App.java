@@ -18,6 +18,8 @@ import java.nio.file.Path;
 
 import javax.swing.SwingUtilities;
 
+import de.zeltlager.kuechenplaner.ui.UiTheme;
+
 /**
  * Entry point for the kitchen planning application.
  */
@@ -46,6 +48,8 @@ public final class App {
         MenuPlanService menuPlanService = new SimpleMenuPlanService(menuPlanRepository);
         InventoryService inventoryService = new SimpleInventoryService(inventoryRepository);
         RecipeService recipeService = new SimpleRecipeService(recipeRepository);
+
+        UiTheme.apply();
 
         SwingUtilities.invokeLater(() -> {
             try {
