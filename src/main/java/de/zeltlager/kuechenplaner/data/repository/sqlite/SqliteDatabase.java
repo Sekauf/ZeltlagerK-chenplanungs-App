@@ -106,11 +106,7 @@ public final class SqliteDatabase implements AutoCloseable {
                         + " VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
                 Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, name);
-            if (categoryId != null) {
-                statement.setLong(2, categoryId);
-            } else {
-                statement.setNull(2, java.sql.Types.INTEGER);
-            }
+            statement.setObject(2, categoryId, java.sql.Types.INTEGER);
             statement.setInt(3, baseServings);
             statement.setString(4, instructions);
             statement.executeUpdate();
