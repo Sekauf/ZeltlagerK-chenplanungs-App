@@ -4,6 +4,7 @@ import de.zeltlager.kuechenplaner.data.model.Ingredient;
 import de.zeltlager.kuechenplaner.data.model.RecipeWithIngredients;
 import de.zeltlager.kuechenplaner.data.model.ShoppingListItem;
 
+import java.io.Reader;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +33,20 @@ public interface RecipeService {
     void deleteRecipe(long id);
 
     List<ShoppingListItem> generateShoppingList(List<RecipeSelection> selections);
+
+    /**
+     * Imports recipes from an external source and persists them using the current repository.
+     *
+     * @param reader the reader providing the external recipe data
+     * @param format the format of the external data source
+     * @return the list of imported recipes as stored in the repository
+     */
+    List<RecipeWithIngredients> importRecipes(Reader reader, ImportFormat format);
+
+    enum ImportFormat {
+        CSV,
+        MEAL_MASTER
+    }
 
     record RecipeSelection(long recipeId, int servings) {
         public RecipeSelection {
