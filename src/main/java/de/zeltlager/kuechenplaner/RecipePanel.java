@@ -10,8 +10,12 @@ import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.io.File;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +23,7 @@ import java.util.Objects;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
@@ -34,6 +39,7 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
  * Panel that presents the list of recipes and allows inspecting or editing their details.
@@ -45,6 +51,7 @@ public class RecipePanel extends JPanel {
     private final JTable recipeTable;
     private final JButton reloadButton;
     private final JButton newButton;
+    private final JButton exportButton;
     private final JLabel statusLabel;
     private final JTextField searchField;
 
@@ -87,6 +94,10 @@ public class RecipePanel extends JPanel {
         newButton = new JButton("Neues Rezept…");
         newButton.addActionListener(event -> openCreateDialog());
         topPanel.add(newButton);
+
+        exportButton = new JButton("Exportieren…");
+        exportButton.addActionListener(event -> openExportDialog());
+        topPanel.add(exportButton);
 
         topPanel.add(new JLabel("Suche:"));
         searchField = new JTextField(20);
@@ -234,6 +245,7 @@ public class RecipePanel extends JPanel {
     public void reloadData() {
         reloadButton.setEnabled(false);
         newButton.setEnabled(false);
+        exportButton.setEnabled(false);
         statusLabel.setText("Aktualisiere...");
         updateDetailEnabled(false);
         cancelRecipeLoadWorker();
@@ -262,6 +274,7 @@ public class RecipePanel extends JPanel {
                 } finally {
                     reloadButton.setEnabled(true);
                     newButton.setEnabled(true);
+                    exportButton.setEnabled(true);
                 }
             }
         }.execute();
@@ -428,6 +441,78 @@ public class RecipePanel extends JPanel {
         dialog.showDialog(null).ifPresent(this::submitRecipeCreation);
     }
 
+    private void openExportDialog() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Rezepte exportieren");
+        fileChooser.setAcceptAllFileFilterUsed(false);
+        FileNameExtensionFilter csvFilter = new FileNameExtensionFilter("CSV-Datei (*.csv)", "csv");
+        FileNameExtensionFilter textFilter = new FileNameExtensionFilter("Textdatei (*.txt)", "txt");
+        fileChooser.addChoosableFileFilter(csvFilter);
+        fileChooser.addChoosableFileFilter(textFilter);
+        fileChooser.setFileFilter(csvFilter);
+
+        int result = fileChooser.showSaveDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File chosenFile = fileChooser.getSelectedFile();
+        RecipeService.ExportFormat format = fileChooser.getFileFilter() == textFilter
+                ? RecipeService.ExportFormat.PLAIN_TEXT
+                : RecipeService.ExportFormat.CSV;
+        String extension = format == RecipeService.ExportFormat.CSV ? ".csv" : ".txt";
+        File targetFile = chosenFile;
+        String lowerCaseName = targetFile.getName().toLowerCase(Locale.ROOT);
+        if (!lowerCaseName.endsWith(extension)) {
+            if (targetFile.getParentFile() != null) {
+                targetFile = new File(targetFile.getParentFile(), targetFile.getName() + extension);
+            } else {
+                targetFile = new File(targetFile.getName() + extension);
+            }
+        }
+
+        Path exportPath = targetFile.toPath();
+        if (Files.exists(exportPath)) {
+            int confirmation = JOptionPane.showConfirmDialog(this,
+                    "Die ausgewählte Datei existiert bereits. Möchten Sie sie überschreiben?",
+                    "Datei überschreiben",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+            if (confirmation != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+
+        Path finalExportPath = exportPath;
+        RecipeService.ExportFormat finalFormat = format;
+        statusLabel.setText("Exportiere...");
+        exportButton.setEnabled(false);
+
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                try (var writer = Files.newBufferedWriter(finalExportPath, StandardCharsets.UTF_8)) {
+                    recipeService.exportRecipes(writer, finalFormat);
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    statusLabel.setText("Rezepte exportiert: " + finalExportPath.getFileName());
+                } catch (Exception e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    showError("Rezepte konnten nicht exportiert werden: " + cause.getMessage());
+                    statusLabel.setText("Export fehlgeschlagen");
+                } finally {
+                    exportButton.setEnabled(true);
+                }
+            }
+        }.execute();
+    }
+
     private void submitRecipeUpdate(RecipeDetailDialog.FormData formData) {
         if (selectedRecipe == null) {
             return;
@@ -439,6 +524,7 @@ public class RecipePanel extends JPanel {
         updateDetailEnabled(false);
         reloadButton.setEnabled(false);
         newButton.setEnabled(false);
+        exportButton.setEnabled(false);
         statusLabel.setText("Speichere...");
         new SwingWorker<RecipeWithIngredients, Void>() {
             @Override
@@ -466,6 +552,7 @@ public class RecipePanel extends JPanel {
                     updateDetailEnabled(true);
                     reloadButton.setEnabled(true);
                     newButton.setEnabled(true);
+                    exportButton.setEnabled(true);
                 }
             }
         }.execute();
@@ -477,6 +564,7 @@ public class RecipePanel extends JPanel {
         updateDetailEnabled(false);
         reloadButton.setEnabled(false);
         newButton.setEnabled(false);
+        exportButton.setEnabled(false);
         statusLabel.setText("Speichere...");
         new SwingWorker<RecipeWithIngredients, Void>() {
             @Override
@@ -501,6 +589,7 @@ public class RecipePanel extends JPanel {
                     statusLabel.setText("Fehler beim Speichern");
                     reloadButton.setEnabled(true);
                     newButton.setEnabled(true);
+                    exportButton.setEnabled(true);
                     if (selectedRecipe != null) {
                         populateDetailFields(selectedRecipe);
                         updateDetailEnabled(true);
