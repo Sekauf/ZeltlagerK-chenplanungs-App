@@ -37,9 +37,12 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+
+import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that presents the list of recipes and allows inspecting or editing their details.
@@ -71,9 +74,12 @@ public class RecipePanel extends JPanel {
     private Runnable recipesUpdatedListener;
 
     public RecipePanel(RecipeService recipeService) {
-        super(new BorderLayout());
+        super(new BorderLayout(16, 16));
         this.recipeService = Objects.requireNonNull(recipeService, "recipeService");
         this.tableModel = new RecipeTableModel();
+
+        setOpaque(false);
+        setBorder(new EmptyBorder(0, 0, 0, 0));
 
         recipeTable = new JTable(tableModel);
         recipeTable.setAutoCreateRowSorter(true);
@@ -85,27 +91,25 @@ public class RecipePanel extends JPanel {
             }
         });
 
+        UiTheme.styleTable(recipeTable);
+
         JScrollPane tableScrollPane = new JScrollPane(recipeTable);
+        UiTheme.styleScrollPane(tableScrollPane);
 
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        reloadButton = new JButton("Aktualisieren");
+        reloadButton = UiTheme.createSecondaryButton("Aktualisieren");
         reloadButton.addActionListener(event -> reloadData());
-        topPanel.add(reloadButton);
 
-        newButton = new JButton("Neues Rezept…");
+        newButton = UiTheme.createPrimaryButton("Neues Rezept…");
         newButton.addActionListener(event -> openCreateDialog());
-        topPanel.add(newButton);
 
-        importButton = new JButton("Importieren…");
+        importButton = UiTheme.createSecondaryButton("Importieren…");
         importButton.addActionListener(event -> openImportDialog());
-        topPanel.add(importButton);
 
-        exportButton = new JButton("Exportieren…");
+        exportButton = UiTheme.createSecondaryButton("Exportieren…");
         exportButton.addActionListener(event -> openExportDialog());
-        topPanel.add(exportButton);
 
-        topPanel.add(new JLabel("Suche:"));
         searchField = new JTextField(20);
+        UiTheme.styleTextField(searchField);
         searchField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent event) {
@@ -122,16 +126,35 @@ public class RecipePanel extends JPanel {
                 filterRecipes();
             }
         });
-        topPanel.add(searchField);
+        searchField.setToolTipText("Rezepte nach Namen oder Kategorien durchsuchen");
 
-        statusLabel = new JLabel(" ");
-        topPanel.add(statusLabel);
-        add(topPanel, BorderLayout.NORTH);
+        statusLabel = new JLabel("Bereit");
+        statusLabel.setForeground(UiTheme.TEXT_MUTED);
+
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        headerActions.setOpaque(false);
+        headerActions.add(new JLabel("Suche:"));
+        headerActions.add(searchField);
+        headerActions.add(importButton);
+        headerActions.add(exportButton);
+        headerActions.add(newButton);
+        headerActions.add(reloadButton);
+
+        add(UiTheme.createHeader("Rezepte", headerActions), BorderLayout.NORTH);
 
         JPanel detailPanel = createDetailPanel();
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableScrollPane, detailPanel);
+        JPanel tableCard = UiTheme.createCard(new BorderLayout(12, 12));
+        tableCard.add(tableScrollPane, BorderLayout.CENTER);
+        tableCard.add(statusLabel, BorderLayout.SOUTH);
+
+        JPanel detailCard = UiTheme.createCard(new BorderLayout(12, 12));
+        detailCard.add(detailPanel, BorderLayout.CENTER);
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, tableCard, detailCard);
         splitPane.setResizeWeight(0.4);
+        splitPane.setBorder(null);
+        splitPane.setOpaque(false);
         add(splitPane, BorderLayout.CENTER);
 
         nameField = new JTextField();
@@ -158,9 +181,11 @@ public class RecipePanel extends JPanel {
         instructionsArea.setLineWrap(true);
         instructionsArea.setWrapStyleWord(true);
         instructionsArea.setEditable(false);
+        UiTheme.styleTextArea(instructionsArea);
+        instructionsArea.setOpaque(true);
         ingredientListModel = new DefaultListModel<>();
         ingredientHeaderLabel = new JLabel("Zutaten:");
-        editButton = new JButton("Bearbeiten…");
+        editButton = UiTheme.createSecondaryButton("Bearbeiten…");
         editButton.addActionListener(event -> openDetailDialog());
 
         // finalize detail panel wiring
@@ -170,8 +195,10 @@ public class RecipePanel extends JPanel {
 
     private JPanel createDetailPanel() {
         JPanel detailPanel = new JPanel(new BorderLayout());
+        detailPanel.setOpaque(false);
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        formPanel.setOpaque(false);
+        formPanel.setBorder(new EmptyBorder(0, 0, 0, 0));
         detailPanel.add(formPanel, BorderLayout.CENTER);
         return detailPanel;
     }
@@ -189,6 +216,7 @@ public class RecipePanel extends JPanel {
 
         constraints.gridx = 1;
         constraints.weightx = 1.0;
+        UiTheme.styleTextField(nameField);
         formPanel.add(nameField, constraints);
 
         constraints.gridx = 0;
@@ -198,6 +226,7 @@ public class RecipePanel extends JPanel {
 
         constraints.gridx = 1;
         constraints.weightx = 1.0;
+        UiTheme.styleTextField(categoryField);
         formPanel.add(categoryField, constraints);
 
         constraints.gridx = 0;
@@ -225,6 +254,7 @@ public class RecipePanel extends JPanel {
         constraints.fill = GridBagConstraints.BOTH;
         constraints.weighty = 1.0;
         JScrollPane instructionsScrollPane = new JScrollPane(instructionsArea);
+        UiTheme.styleScrollPane(instructionsScrollPane);
         formPanel.add(instructionsScrollPane, constraints);
 
         constraints.gridx = 0;
@@ -236,7 +266,10 @@ public class RecipePanel extends JPanel {
         constraints.gridx = 1;
         constraints.fill = GridBagConstraints.BOTH;
         JList<String> ingredientList = new JList<>(ingredientListModel);
+        ingredientList.setBackground(UiTheme.SURFACE_ALT);
+        ingredientList.setForeground(UiTheme.TEXT_PRIMARY);
         JScrollPane ingredientScrollPane = new JScrollPane(ingredientList);
+        UiTheme.styleScrollPane(ingredientScrollPane);
         ingredientScrollPane.setPreferredSize(new java.awt.Dimension(200, 120));
         formPanel.add(ingredientScrollPane, constraints);
 

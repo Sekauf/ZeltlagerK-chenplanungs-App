@@ -22,6 +22,9 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
+
+import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that shows and edits menu plan entries backed by the database.
@@ -44,9 +47,12 @@ public class MenuPlanPanel extends JPanel {
     private boolean deleteInProgress;
 
     public MenuPlanPanel(MenuPlanService menuPlanService) {
-        super(new BorderLayout());
+        super(new BorderLayout(16, 16));
         this.menuPlanService = menuPlanService;
         this.tableModel = new MenuPlanTableModel();
+
+        setOpaque(false);
+        setBorder(new EmptyBorder(0, 0, 0, 0));
 
         table = new JTable(tableModel);
         table.setAutoCreateRowSorter(true);
@@ -57,41 +63,64 @@ public class MenuPlanPanel extends JPanel {
                 updateDeleteButtonState();
             }
         });
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        UiTheme.styleTable(table);
 
-        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        reloadButton = new JButton("Aktualisieren");
+        JScrollPane tableScrollPane = new JScrollPane(table);
+        UiTheme.styleScrollPane(tableScrollPane);
+
+        reloadButton = UiTheme.createSecondaryButton("Aktualisieren");
         reloadButton.addActionListener(event -> reloadData());
-        topPanel.add(reloadButton);
 
-        deleteButton = new JButton("Auswahl löschen");
+        statusLabel = new JLabel("Bereit");
+        statusLabel.setForeground(UiTheme.TEXT_MUTED);
+
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        headerActions.setOpaque(false);
+        headerActions.add(statusLabel);
+        headerActions.add(reloadButton);
+
+        add(UiTheme.createHeader("Planer", headerActions), BorderLayout.NORTH);
+
+        JPanel tableCard = UiTheme.createCard(new BorderLayout(12, 12));
+        JPanel tableToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        tableToolbar.setOpaque(false);
+        deleteButton = UiTheme.createSecondaryButton("Auswahl löschen");
         deleteButton.setEnabled(false);
         deleteButton.addActionListener(event -> deleteSelectedEntry());
-        topPanel.add(deleteButton);
+        tableToolbar.add(deleteButton);
+        tableCard.add(tableToolbar, BorderLayout.NORTH);
+        tableCard.add(tableScrollPane, BorderLayout.CENTER);
+        add(tableCard, BorderLayout.CENTER);
 
-        statusLabel = new JLabel(" ");
-        topPanel.add(statusLabel);
-        add(topPanel, BorderLayout.NORTH);
-
-        JPanel formPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        formPanel.add(new JLabel("Datum (DD-MM-YYYY):"));
+        JPanel formCard = UiTheme.createCard(new FlowLayout(FlowLayout.LEFT, 12, 8));
+        JLabel dateLabel = new JLabel("Datum (DD-MM-YYYY):");
+        formCard.add(dateLabel);
         dateField = new JTextField(10);
         dateField.setText(DATE_FORMATTER.format(LocalDate.now()));
-        formPanel.add(dateField);
+        UiTheme.styleTextField(dateField);
+        formCard.add(dateField);
 
-        formPanel.add(new JLabel("Gericht:"));
+        JLabel mealLabel = new JLabel("Gericht:");
+        formCard.add(mealLabel);
         mealField = new JTextField(15);
-        formPanel.add(mealField);
+        UiTheme.styleTextField(mealField);
+        formCard.add(mealField);
 
-        formPanel.add(new JLabel("Portionen:"));
+        JLabel servingsLabel = new JLabel("Portionen:");
+        formCard.add(servingsLabel);
         servingsSpinner = new JSpinner(new SpinnerNumberModel(10, 1, 1000, 1));
-        formPanel.add(servingsSpinner);
+        JSpinner.DefaultEditor spinnerEditor = (JSpinner.DefaultEditor) servingsSpinner.getEditor();
+        spinnerEditor.getTextField().setColumns(4);
+        spinnerEditor.getTextField().setBackground(UiTheme.SURFACE_ALT);
+        spinnerEditor.getTextField().setForeground(UiTheme.TEXT_PRIMARY);
+        spinnerEditor.getTextField().setBorder(new EmptyBorder(8, 8, 8, 8));
+        formCard.add(servingsSpinner);
 
-        addButton = new JButton("Eintrag hinzufügen");
+        addButton = UiTheme.createPrimaryButton("Eintrag hinzufügen");
         addButton.addActionListener(event -> addEntry());
-        formPanel.add(addButton);
+        formCard.add(addButton);
 
-        add(formPanel, BorderLayout.SOUTH);
+        add(formCard, BorderLayout.SOUTH);
     }
 
     public void reloadData() {
