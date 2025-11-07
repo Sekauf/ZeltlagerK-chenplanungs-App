@@ -22,7 +22,13 @@ import java.util.Objects;
 public class SqliteMenuPlanRepository implements MenuPlanRepository {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter LEGACY_DATE_TIME_FORMATTER = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter[] SUPPORTED_DATE_TIME_FORMATTERS = {
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+            DateTimeFormatter.ISO_DATE_TIME,
+            LEGACY_DATE_TIME_FORMATTER
+    };
 
     private final Connection connection;
 
@@ -83,8 +89,15 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
     private LocalDate parseDate(String value) {
         try {
             return LocalDate.parse(value, DATE_FORMATTER);
-        } catch (DateTimeParseException ignored) {
-            return LocalDateTime.parse(value, DATE_TIME_FORMATTER).toLocalDate();
+        } catch (DateTimeParseException dateParseException) {
+            for (DateTimeFormatter formatter : SUPPORTED_DATE_TIME_FORMATTERS) {
+                try {
+                    return LocalDateTime.parse(value, formatter).toLocalDate();
+                } catch (DateTimeParseException ignored) {
+                    // try next formatter
+                }
+            }
+            throw new IllegalStateException("Unsupported date format: " + value, dateParseException);
         }
     }
 }
