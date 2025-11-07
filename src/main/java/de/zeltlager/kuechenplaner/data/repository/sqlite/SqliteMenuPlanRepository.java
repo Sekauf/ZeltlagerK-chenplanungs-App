@@ -21,7 +21,8 @@ import java.util.Objects;
  */
 public class SqliteMenuPlanRepository implements MenuPlanRepository {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    private static final DateTimeFormatter LEGACY_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter LEGACY_DATE_TIME_FORMATTER = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter[] SUPPORTED_DATE_TIME_FORMATTERS = {
@@ -90,14 +91,18 @@ public class SqliteMenuPlanRepository implements MenuPlanRepository {
         try {
             return LocalDate.parse(value, DATE_FORMATTER);
         } catch (DateTimeParseException dateParseException) {
-            for (DateTimeFormatter formatter : SUPPORTED_DATE_TIME_FORMATTERS) {
-                try {
-                    return LocalDateTime.parse(value, formatter).toLocalDate();
-                } catch (DateTimeParseException ignored) {
-                    // try next formatter
+            try {
+                return LocalDate.parse(value, LEGACY_DATE_FORMATTER);
+            } catch (DateTimeParseException legacyDateParseException) {
+                for (DateTimeFormatter formatter : SUPPORTED_DATE_TIME_FORMATTERS) {
+                    try {
+                        return LocalDateTime.parse(value, formatter).toLocalDate();
+                    } catch (DateTimeParseException ignored) {
+                        // try next formatter
+                    }
                 }
+                throw new IllegalStateException("Unsupported date format: " + value, legacyDateParseException);
             }
-            throw new IllegalStateException("Unsupported date format: " + value, dateParseException);
         }
     }
 }

@@ -27,7 +27,7 @@ import javax.swing.SwingWorker;
  */
 public class MenuPlanPanel extends JPanel {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
     private final MenuPlanService menuPlanService;
     private final MenuPlanTableModel tableModel;
@@ -59,7 +59,7 @@ public class MenuPlanPanel extends JPanel {
         add(topPanel, BorderLayout.NORTH);
 
         JPanel formPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        formPanel.add(new JLabel("Datum (YYYY-MM-DD):"));
+        formPanel.add(new JLabel("Datum (DD-MM-YYYY):"));
         dateField = new JTextField(10);
         dateField.setText(DATE_FORMATTER.format(LocalDate.now()));
         formPanel.add(dateField);
@@ -110,7 +110,7 @@ public class MenuPlanPanel extends JPanel {
         try {
             date = LocalDate.parse(dateField.getText().trim(), DATE_FORMATTER);
         } catch (DateTimeParseException e) {
-            showError("Bitte ein gültiges Datum im Format YYYY-MM-DD eingeben.");
+            showError("Bitte ein gültiges Datum im Format DD-MM-YYYY eingeben.");
             return;
         }
 

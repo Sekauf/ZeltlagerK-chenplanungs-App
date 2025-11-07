@@ -13,7 +13,7 @@ import javax.swing.table.AbstractTableModel;
  */
 public class MenuPlanTableModel extends AbstractTableModel {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final String[] COLUMN_NAMES = {"Datum", "Gericht", "Portionen"};
 
     private final List<MenuPlanEntry> entries = new ArrayList<>();
