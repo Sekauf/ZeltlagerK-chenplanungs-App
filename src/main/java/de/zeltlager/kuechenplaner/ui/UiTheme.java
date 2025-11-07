@@ -36,6 +36,7 @@ public final class UiTheme {
 
     private static final Font TITLE_FONT = new Font("SansSerif", Font.BOLD, 20);
     private static final Font BUTTON_FONT = new Font("SansSerif", Font.BOLD, 14);
+    private static final Font SECTION_FONT = new Font("SansSerif", Font.BOLD, 16);
 
     private UiTheme() {
         // utility
@@ -84,6 +85,13 @@ public final class UiTheme {
         card.setBackground(SURFACE);
         card.setBorder(new EmptyBorder(16, 16, 16, 16));
         return card;
+    }
+
+    public static JLabel createSectionLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(SECTION_FONT);
+        label.setForeground(TEXT_PRIMARY);
+        return label;
     }
 
     public static JButton createPrimaryButton(String text) {
