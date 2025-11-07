@@ -4,8 +4,14 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 import javax.swing.JFrame;
+import javax.swing.JFileChooser;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -13,6 +19,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JTabbedPane;
 import javax.swing.WindowConstants;
 
+import de.zeltlager.kuechenplaner.data.repository.sqlite.SqliteDatabase;
 import de.zeltlager.kuechenplaner.logic.InventoryService;
 import de.zeltlager.kuechenplaner.logic.MenuPlanService;
 import de.zeltlager.kuechenplaner.logic.RecipeService;
@@ -27,11 +34,14 @@ public class MainWindow {
     private final InventoryPanel inventoryPanel;
     private final RecipePanel recipePanel;
     private final ShoppingListPanel shoppingListPanel;
+    private final SqliteDatabase database;
 
     public MainWindow(MenuPlanService menuPlanService,
             InventoryService inventoryService,
             RecipeService recipeService,
-            AutoCloseable shutdownHook) {
+            SqliteDatabase database) {
+        this.database = Objects.requireNonNull(database, "database");
+
         frame = new JFrame("Zeltlager Küchenplaner");
         frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         frame.setLayout(new BorderLayout());
@@ -50,12 +60,10 @@ public class MainWindow {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
-                if (shutdownHook != null) {
-                    try {
-                        shutdownHook.close();
-                    } catch (Exception ex) {
-                        showErrorDialog("Datenbank konnte nicht geschlossen werden: " + ex.getMessage());
-                    }
+                try {
+                    MainWindow.this.database.close();
+                } catch (Exception ex) {
+                    showErrorDialog("Datenbank konnte nicht geschlossen werden: " + ex.getMessage());
                 }
             }
         });
@@ -77,6 +85,9 @@ public class MainWindow {
         JMenuBar menuBar = new JMenuBar();
 
         JMenu fileMenu = new JMenu("Datei");
+        JMenuItem backupItem = new JMenuItem("Backup erstellen...");
+        backupItem.addActionListener(event -> showBackupDialog());
+        fileMenu.add(backupItem);
         JMenuItem exitItem = new JMenuItem("Beenden");
         exitItem.addActionListener(event -> frame.dispose());
         fileMenu.add(exitItem);
@@ -109,5 +120,32 @@ public class MainWindow {
 
     private void showErrorDialog(String message) {
         JOptionPane.showMessageDialog(frame, message, "Fehler", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void showBackupDialog() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Backup speichern");
+
+        Path databaseFile = database.getDatabaseFile();
+        String defaultBaseName = databaseFile != null && databaseFile.getFileName() != null
+                ? databaseFile.getFileName().toString().replaceFirst("\\.db$", "")
+                : "datenbank";
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"));
+        String suggestedName = defaultBaseName + "-backup-" + timestamp + ".db";
+        fileChooser.setSelectedFile(new File(suggestedName));
+
+        int userSelection = fileChooser.showSaveDialog(frame);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            Path targetPath = fileChooser.getSelectedFile().toPath();
+            try {
+                Path writtenFile = database.backupTo(targetPath);
+                JOptionPane.showMessageDialog(frame,
+                        "Backup erfolgreich erstellt:\n" + writtenFile,
+                        "Backup abgeschlossen",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } catch (IllegalStateException ex) {
+                showErrorDialog("Backup fehlgeschlagen: " + ex.getMessage());
+            }
+        }
     }
 }

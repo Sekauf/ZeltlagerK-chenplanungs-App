@@ -47,16 +47,15 @@ public final class App {
         InventoryService inventoryService = new SimpleInventoryService(inventoryRepository);
         RecipeService recipeService = new SimpleRecipeService(recipeRepository);
 
-        SqliteDatabase finalDatabase = database;
         SwingUtilities.invokeLater(() -> {
             try {
-                MainWindow window = new MainWindow(menuPlanService, inventoryService, recipeService, finalDatabase);
+                MainWindow window = new MainWindow(menuPlanService, inventoryService, recipeService, database);
                 window.showWindow();
             } catch (Exception e) {
                 System.err.println("Konnte das Hauptfenster nicht starten: " + e.getMessage());
                 e.printStackTrace();
                 try {
-                    finalDatabase.close();
+                    database.close();
                 } catch (Exception closeException) {
                     System.err.println("Datenbank konnte nicht geschlossen werden: " + closeException.getMessage());
                     closeException.printStackTrace();
