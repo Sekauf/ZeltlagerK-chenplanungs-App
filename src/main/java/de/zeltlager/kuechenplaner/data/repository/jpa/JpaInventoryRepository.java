@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import de.zeltlager.kuechenplaner.data.repository.InventoryRepository;
 import de.zeltlager.kuechenplaner.user.UserAccountService;
 
 @Repository
+@Profile("!memory")
 @Transactional
 public class JpaInventoryRepository implements InventoryRepository {
 

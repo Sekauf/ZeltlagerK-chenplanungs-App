@@ -39,11 +39,14 @@ import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.border.EmptyBorder;
 
+import org.springframework.stereotype.Component;
+
 import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that renders a consolidated shopping list for the selected menu plan.
  */
+@Component
 public class ShoppingListPanel extends JPanel {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");

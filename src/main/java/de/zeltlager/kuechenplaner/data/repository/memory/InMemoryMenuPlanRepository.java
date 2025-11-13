@@ -9,9 +9,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+
 /**
  * In-memory implementation that keeps menu plan data inside the running application.
  */
+@Repository
+@Profile("memory")
 public class InMemoryMenuPlanRepository implements MenuPlanRepository {
 
     private final List<MenuPlanEntry> entries = new ArrayList<>();

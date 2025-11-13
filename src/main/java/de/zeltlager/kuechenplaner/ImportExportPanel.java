@@ -26,12 +26,15 @@ import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Dedicated panel that combines the import and export capabilities of the
  * {@link RecipeService}. The layout mirrors the mock-up by placing two cards
  * side by side: one for importing external data and one for exporting the
  * current dataset.
  */
+@Component
 public class ImportExportPanel extends JPanel {
 
     private final RecipeService recipeService;

@@ -42,11 +42,14 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import org.springframework.stereotype.Component;
+
 import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that presents the list of recipes and allows inspecting or editing their details.
  */
+@Component
 public class RecipePanel extends JPanel {
 
     private final RecipeService recipeService;

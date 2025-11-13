@@ -8,9 +8,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+
 /**
  * Simple in-memory inventory that can be replaced by a persistent implementation later.
  */
+@Repository
+@Profile("memory")
 public class InMemoryInventoryRepository implements InventoryRepository {
 
     private final List<InventoryItem> items = new ArrayList<>();
