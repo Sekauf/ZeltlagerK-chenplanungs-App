@@ -12,11 +12,7 @@ import de.zeltlager.kuechenplaner.ui.UiTheme;
  * Entry point for the kitchen planning application.
  */
 @SpringBootApplication
-public final class App {
-
-    private App() {
-        // utility class
-    }
+public class App {
 
     public static void main(String[] args) {
         System.setProperty("java.awt.headless", "false");
