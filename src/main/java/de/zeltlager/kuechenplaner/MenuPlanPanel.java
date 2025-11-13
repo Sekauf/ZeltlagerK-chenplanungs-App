@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Objects;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -24,11 +25,14 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 
+import org.springframework.stereotype.Component;
+
 import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that shows and edits menu plan entries backed by the database.
  */
+@Component
 public class MenuPlanPanel extends JPanel {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
@@ -48,7 +52,7 @@ public class MenuPlanPanel extends JPanel {
 
     public MenuPlanPanel(MenuPlanService menuPlanService) {
         super(new BorderLayout(16, 16));
-        this.menuPlanService = menuPlanService;
+        this.menuPlanService = Objects.requireNonNull(menuPlanService, "menuPlanService");
         this.tableModel = new MenuPlanTableModel();
 
         setOpaque(false);

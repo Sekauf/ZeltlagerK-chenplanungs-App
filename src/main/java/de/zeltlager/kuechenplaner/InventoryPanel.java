@@ -6,6 +6,7 @@ import de.zeltlager.kuechenplaner.logic.InventoryService;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.util.List;
+import java.util.Objects;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -19,11 +20,14 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 
+import org.springframework.stereotype.Component;
+
 import de.zeltlager.kuechenplaner.ui.UiTheme;
 
 /**
  * Panel that displays and updates the inventory backed by the SQLite database.
  */
+@Component
 public class InventoryPanel extends JPanel {
 
     private final InventoryService inventoryService;
@@ -37,7 +41,7 @@ public class InventoryPanel extends JPanel {
 
     public InventoryPanel(InventoryService inventoryService) {
         super(new BorderLayout(16, 16));
-        this.inventoryService = inventoryService;
+        this.inventoryService = Objects.requireNonNull(inventoryService, "inventoryService");
         this.tableModel = new InventoryTableModel();
 
         setOpaque(false);

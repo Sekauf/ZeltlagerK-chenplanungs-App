@@ -1,9 +1,6 @@
 package de.zeltlager.kuechenplaner;
 
 import de.zeltlager.kuechenplaner.backup.BackupService;
-import de.zeltlager.kuechenplaner.logic.InventoryService;
-import de.zeltlager.kuechenplaner.logic.MenuPlanService;
-import de.zeltlager.kuechenplaner.logic.RecipeService;
 import de.zeltlager.kuechenplaner.ui.UiTheme;
 import de.zeltlager.kuechenplaner.user.UserContext;
 
@@ -60,12 +57,19 @@ public class MainWindow {
     private final UserContext userContext;
     private final List<Runnable> windowClosedListeners = new CopyOnWriteArrayList<>();
 
-    public MainWindow(MenuPlanService menuPlanService,
-            InventoryService inventoryService,
-            RecipeService recipeService,
+    public MainWindow(MenuPlanPanel menuPlanPanel,
+            InventoryPanel inventoryPanel,
+            RecipePanel recipePanel,
+            ShoppingListPanel shoppingListPanel,
+            ImportExportPanel importExportPanel,
             BackupService backupService,
             SettingsPanel settingsPanel,
             UserContext userContext) {
+        this.menuPlanPanel = Objects.requireNonNull(menuPlanPanel, "menuPlanPanel");
+        this.inventoryPanel = Objects.requireNonNull(inventoryPanel, "inventoryPanel");
+        this.recipePanel = Objects.requireNonNull(recipePanel, "recipePanel");
+        this.shoppingListPanel = Objects.requireNonNull(shoppingListPanel, "shoppingListPanel");
+        this.importExportPanel = Objects.requireNonNull(importExportPanel, "importExportPanel");
         this.backupService = Objects.requireNonNull(backupService, "backupService");
         this.settingsPanel = Objects.requireNonNull(settingsPanel, "settingsPanel");
         this.userContext = Objects.requireNonNull(userContext, "userContext");
@@ -76,12 +80,6 @@ public class MainWindow {
         frame.getContentPane().setBackground(UiTheme.BACKGROUND);
 
         frame.setJMenuBar(createMenuBar());
-
-        menuPlanPanel = new MenuPlanPanel(menuPlanService);
-        inventoryPanel = new InventoryPanel(inventoryService);
-        recipePanel = new RecipePanel(recipeService);
-        shoppingListPanel = new ShoppingListPanel(menuPlanService, recipeService);
-        importExportPanel = new ImportExportPanel(recipeService);
 
         settingsPanel.setOpaque(false);
 
